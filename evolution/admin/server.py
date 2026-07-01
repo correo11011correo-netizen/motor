@@ -22,7 +22,7 @@ app = FastAPI(
 )
 
 # Configuración del Motor (Esclavo)
-MOTOR_URL = "http://localhost:8001"
+MOTOR_URL = "http://localhost:8000"
 CONFIG_FILE = "admin_config.json"
 LOG_FILES = [
     "evolution_admin.log",
@@ -180,6 +180,6 @@ async def serve_index():
 
 
 if __name__ == "__main__":
-    # El Maestro corre en el puerto 8000
-    logger.info("Starting Evolution Control Center on port 8000...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # El Maestro corre en el puerto 8001
+    logger.info("Starting Evolution Control Center on port 8001...")
+    uvicorn.run(app, host="0.0.0.0", port=8001)

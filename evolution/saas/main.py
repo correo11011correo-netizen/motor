@@ -81,6 +81,6 @@ async def root():
     }
 
 if __name__ == "__main__":
-    port = int(os.getenv("MOTOR_PORT", 8001))
+    port = int(os.getenv("MOTOR_PORT", 8000))
     logger.info(f"Starting Evolution SaaS Motor on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
