@@ -1,0 +1,1 @@
+nohup: fallo al ejecutar la orden './venv/bin/uvicorn': No existe el archivo o el directorio
