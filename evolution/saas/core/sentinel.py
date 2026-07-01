@@ -126,3 +126,6 @@ class SentinelClient:
     @property
     def url(self) -> Optional[str]:
         return self._url
+
+# Singleton instance para el ecosistema Evolution
+sentinel_client = SentinelClient()

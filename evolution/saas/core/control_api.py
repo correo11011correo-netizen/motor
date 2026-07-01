@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from .sentinel import sentinel
+from .sentinel import sentinel_client
 
 router = APIRouter(prefix="/control", tags=["System Control"])
 
@@ -21,7 +21,7 @@ async def connect_sentinel(request: ConnectionRequest):
     """
     Vincular el motor al Administrador de DB (DB-Sentinel) mediante URL y Token.
     """
-    success = sentinel.link(request.url, request.token)
+    success = sentinel_client.link(request.url, request.token)
     if not success:
         raise HTTPException(
             status_code=400,
@@ -31,7 +31,7 @@ async def connect_sentinel(request: ConnectionRequest):
     return {
         "status": "success",
         "message": "Motor successfully linked to DB-Sentinel.",
-        "details": {"connected": sentinel.is_connected, "admin_url": sentinel.url},
+        "details": {"connected": sentinel_client.is_connected, "admin_url": sentinel_client.url},
     }
 
 
@@ -40,11 +40,11 @@ async def disconnect_sentinel():
     """
     Desvincular el motor del Administrador de DB.
     """
-    sentinel.disconnect()
+    sentinel_client.disconnect()
     return {
         "status": "success",
         "message": "Motor returned to DISCONNECTED state.",
-        "details": {"connected": sentinel.is_connected, "admin_url": sentinel.url},
+        "details": {"connected": sentinel_client.is_connected, "admin_url": sentinel_client.url},
     }
 
 
@@ -53,4 +53,4 @@ async def get_status():
     """
     Retorna el estado actual de la vinculación con el Administrador.
     """
-    return SystemStatus(connected=sentinel.is_connected, admin_url=sentinel.url)
+    return SystemStatus(connected=sentinel_client.is_connected, admin_url=sentinel_client.url)
