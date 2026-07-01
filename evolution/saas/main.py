@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
+import uvicorn
 
 from evolution.saas.core.control_api import router as control_router
 from evolution.saas.core.ux_manager import ux_manager
