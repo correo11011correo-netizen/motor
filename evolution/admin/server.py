@@ -33,7 +33,6 @@ LOG_FILES = [
 
 class LogStreamer:
     """Utilidad para leer archivos de logs en tiempo real (estilo tail -f)."""
-
     @staticmethod
     async def tail_logs():
         # Abrir todos los archivos disponibles
@@ -41,7 +40,7 @@ class LogStreamer:
         for path in LOG_FILES:
             if os.path.exists(path):
                 f = open(path, "r")
-                f.seek(0, os.SEEK_END)  # Ir al final del archivo
+                f.seek(0, os.SEEK_END) # Ir al final del archivo
                 files.append(f)
 
         try:
@@ -49,11 +48,18 @@ class LogStreamer:
                 for f in files:
                     line = f.readline()
                     if line:
-                        yield line.strip()
-                await asyncio.sleep(0.1)  # Evitar saturación de CPU
+                        stripped_line = line.strip()
+                        # FILTRO DE RUIDO: Ignorar health checks exitosos (200 OK)
+                        # Evita que la consola se llene de "GET /api/status ... 200 OK"
+                        if ("/api/status" in stripped_line or "/control/status" in stripped_line) and " 200 OK" in stripped_line:
+                            continue
+
+                        yield stripped_line
+                await asyncio.sleep(0.1) # Evitar saturación de CPU
         finally:
             for f in files:
                 f.close()
+
 
 
 @app.get("/api/status")
