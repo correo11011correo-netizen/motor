@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolution Portal - SaaS</title>
+    <link rel="stylesheet" href="css/global.css">
+    <script src="js/core/api.js"></script>
+    <script src="js/core/app.js"></script>
+    <!-- Modules -->
+    <script src="js/modules/sales.js"></script>
+    <script src="js/modules/stock.js"></script>
+    <script src="js/modules/identity.js"></script>
+</head>
+<body class="app-body">
+    <div id="app-root">
+        <div id="sidebar" class="sidebar">
+            <div class="sidebar-logo">
+                <span class="logo-icon">🚀</span>
+                <span class="logo-text">Evolution</span>
+            </div>
+            <nav id="app-nav" class="nav-menu">
+                <!-- Navigation items will be rendered here by app.js -->
+            </nav>
+            <div class="sidebar-footer">
+                <div id="user-profile" class="user-pill">
+                    <span class="user-name">Cargando...</span>
+                    <span class="user-role">Cargando...</span>
+                </div>
+                <button id="logout-btn" class="btn-logout" onclick="App.logout()">🚪 Salir</button>
+            </div>
+        </div>
+        <main id="app-main">
+            <div id="app-content" class="app-content">
+                <!-- Dynamic content will be rendered here -->
+            </div>
+        </main>
+    </div>
+    <script>
+        window.onload = () => {
+            App.init();
+        };
+    </script>
+</body>
+</html>

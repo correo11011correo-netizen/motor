@@ -31,7 +31,10 @@ async def connect_sentinel(request: ConnectionRequest):
     return {
         "status": "success",
         "message": "Motor successfully linked to DB-Sentinel.",
-        "details": {"connected": sentinel_client.is_connected, "admin_url": sentinel_client.url},
+        "details": {
+            "connected": sentinel_client.is_connected,
+            "admin_url": sentinel_client.url,
+        },
     }
 
 
@@ -44,7 +47,10 @@ async def disconnect_sentinel():
     return {
         "status": "success",
         "message": "Motor returned to DISCONNECTED state.",
-        "details": {"connected": sentinel_client.is_connected, "admin_url": sentinel_client.url},
+        "details": {
+            "connected": sentinel_client.is_connected,
+            "admin_url": sentinel_client.url,
+        },
     }
 
 
@@ -53,4 +59,6 @@ async def get_status():
     """
     Retorna el estado actual de la vinculación con el Administrador.
     """
-    return SystemStatus(connected=sentinel_client.is_connected, admin_url=sentinel_client.url)
+    return SystemStatus(
+        connected=sentinel_client.is_connected, admin_url=sentinel_client.url
+    )

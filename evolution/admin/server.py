@@ -31,9 +31,11 @@ LOG_FILES = [
     "generic-db-admin/server.log",
 ]
 
+
 def save_config(url: str, token: str):
     with open(CONFIG_FILE, "w") as f:
         json.dump({"url": url, "token": token}, f)
+
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
@@ -41,8 +43,10 @@ def load_config():
             return json.load(f)
     return None
 
+
 class LogStreamer:
     """Utilidad para leer archivos de logs en tiempo real (estilo tail -f)."""
+
     @staticmethod
     async def tail_logs():
         files = []
@@ -58,7 +62,10 @@ class LogStreamer:
                     line = f.readline()
                     if line:
                         stripped_line = line.strip()
-                        if ("/api/status" in stripped_line or "/control/status" in stripped_line) and " 200 OK" in stripped_line:
+                        if (
+                            "/api/status" in stripped_line
+                            or "/control/status" in stripped_line
+                        ) and " 200 OK" in stripped_line:
                             continue
                         yield stripped_line
                 await asyncio.sleep(0.1)
@@ -89,9 +96,7 @@ async def link_motor_db(data: dict):
     url = data.get("url")
     token = data.get("token")
     if not url or not token:
-        raise HTTPException(
-            status_code=400, detail="URL and Token are required"
-        )
+        raise HTTPException(status_code=400, detail="URL and Token are required")
 
     async with httpx.AsyncClient() as client:
         try:
@@ -100,10 +105,10 @@ async def link_motor_db(data: dict):
             )
             if response.status_code != 200:
                 return response.json()
-            
+
             # Persistir la configuración en el servidor Maestro
             save_config(url, token)
-            
+
             return response.json()
         except httpx.RequestError:
             logger.error("Could not reach the Evolution Motor to link the database.")
@@ -141,13 +146,12 @@ async def receive_frontend_log(data: dict):
     # Intentar persistir el log en la DB a través del Motor
     async with httpx.AsyncClient() as client:
         try:
-            await client.post(f"{MOTOR_URL}/control/log_to_db", json={
-                "level": level,
-                "message": message,
-                "tenant": tenant
-            })
-        except:
-            pass # No bloquear el flujo si el motor no puede guardar el log
+            await client.post(
+                f"{MOTOR_URL}/control/log_to_db",
+                json={"level": level, "message": message, "tenant": tenant},
+            )
+        except Exception:
+            pass  # No bloquear el flujo si el motor no puede guardar el log
 
     return {"status": "logged"}
 

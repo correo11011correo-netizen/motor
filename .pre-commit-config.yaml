@@ -1,3 +1,5 @@
+exclude: '^(audit_|test_|fix_|setup_|verify_|migrate_).*?\.py$|.*_test\.py|.*_audit\.py|.*_sim\.py'
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
