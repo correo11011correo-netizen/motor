@@ -6,6 +6,7 @@ import httpx
 import logging
 import os
 import asyncio
+import json
 
 # Configuración de Logging
 logging.basicConfig(
@@ -22,7 +23,7 @@ app = FastAPI(
 
 # Configuración del Motor (Esclavo)
 MOTOR_URL = "http://localhost:8001"
-# Archivos de logs a monitorear
+CONFIG_FILE = "admin_config.json"
 LOG_FILES = [
     "evolution_admin.log",
     "evolution_saas.log",
@@ -30,17 +31,25 @@ LOG_FILES = [
     "generic-db-admin/server.log",
 ]
 
+def save_config(url: str, token: str):
+    with open(CONFIG_FILE, "w") as f:
+        json.dump({"url": url, "token": token}, f)
+
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r") as f:
+            return json.load(f)
+    return None
 
 class LogStreamer:
     """Utilidad para leer archivos de logs en tiempo real (estilo tail -f)."""
     @staticmethod
     async def tail_logs():
-        # Abrir todos los archivos disponibles
         files = []
         for path in LOG_FILES:
             if os.path.exists(path):
                 f = open(path, "r")
-                f.seek(0, os.SEEK_END) # Ir al final del archivo
+                f.seek(0, os.SEEK_END)
                 files.append(f)
 
         try:
@@ -49,17 +58,13 @@ class LogStreamer:
                     line = f.readline()
                     if line:
                         stripped_line = line.strip()
-                        # FILTRO DE RUIDO: Ignorar health checks exitosos (200 OK)
-                        # Evita que la consola se llene de "GET /api/status ... 200 OK"
                         if ("/api/status" in stripped_line or "/control/status" in stripped_line) and " 200 OK" in stripped_line:
                             continue
-
                         yield stripped_line
-                await asyncio.sleep(0.1) # Evitar saturación de CPU
+                await asyncio.sleep(0.1)
         finally:
             for f in files:
                 f.close()
-
 
 
 @app.get("/api/status")
@@ -82,18 +87,23 @@ async def get_motor_status():
 async def link_motor_db(data: dict):
     """Proxy para vincular el motor a una base de datos mediante la variante."""
     url = data.get("url")
-    if not url:
+    token = data.get("token")
+    if not url or not token:
         raise HTTPException(
-            status_code=400, detail="Database URL (variant) is required"
+            status_code=400, detail="URL and Token are required"
         )
 
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
-                f"{MOTOR_URL}/control/connect", json={"url": url}
+                f"{MOTOR_URL}/control/connect", json={"url": url, "token": token}
             )
             if response.status_code != 200:
                 return response.json()
+            
+            # Persistir la configuración en el servidor Maestro
+            save_config(url, token)
+            
             return response.json()
         except httpx.RequestError:
             logger.error("Could not reach the Evolution Motor to link the database.")
@@ -108,6 +118,9 @@ async def disconnect_motor_db():
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(f"{MOTOR_URL}/control/disconnect")
+            # Limpiar configuración persistida
+            if os.path.exists(CONFIG_FILE):
+                os.remove(CONFIG_FILE)
             return response.json()
         except httpx.RequestError:
             raise HTTPException(
@@ -125,7 +138,17 @@ async def receive_frontend_log(data: dict):
     log_entry = f"[FRONTEND][{tenant}] {level}: {message}"
     logger.info(log_entry)
 
-    # Nota: El LogStreamer capturará esto ya que se escribe en evolution_admin.log
+    # Intentar persistir el log en la DB a través del Motor
+    async with httpx.AsyncClient() as client:
+        try:
+            await client.post(f"{MOTOR_URL}/control/log_to_db", json={
+                "level": level,
+                "message": message,
+                "tenant": tenant
+            })
+        except:
+            pass # No bloquear el flujo si el motor no puede guardar el log
+
     return {"status": "logged"}
 
 
