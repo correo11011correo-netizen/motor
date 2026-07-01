@@ -18,10 +18,13 @@ class AuthService:
     ) -> dict:
         try:
             # 1. Validar plan via Sentinel
-            plan_res = sentinel_client.execute(
-                "data.query", 
-                {"entity": "saas_plans", "filters": {"plan_id": plan}}
-            )
+            try:
+                plan_res = sentinel_client.execute(
+                    "data.query", 
+                    {"entity": "saas_plans", "filters": {"plan_id": plan}}
+                )
+            except ConnectionError:
+                return {"success": False, "error": "Sistema no vinculado a Base de Datos. Por favor, configure la conexión en el panel."}
 
             if not plan_res.get("success") or not plan_res.get("data"):
                 if plan != "free":
@@ -32,43 +35,43 @@ class AuthService:
             webhook_secret = secrets.token_urlsafe(32)
 
             # Insert Tenant via Sentinel
-            sentinel_client.execute(
-                "data.insert", 
-                {"entity": "tenants", "data": {
-                    "id": tenant_id, 
-                    "name": business_name, 
-                    "webhook_secret": webhook_secret, 
-                    "plan": plan
-                }}
-            )
+            try:
+                sentinel_client.execute(
+                    "data.insert", 
+                    {"entity": "tenants", "data": {
+                        "id": tenant_id, 
+                        "name": business_name, 
+                        "webhook_secret": webhook_secret, 
+                        "plan": plan
+                    }}
+                )
 
-            user_id = uuid.uuid4()
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            
-            # Insert User via Sentinel
-            sentinel_client.execute(
-                "data.insert", 
-                {"entity": "users", "data": {
-                    "id": user_id, 
-                    "email": email, 
-                    "password_hash": password_hash, 
-                    "role": "admin", 
-                    "tenant_id": tenant_id
-                }}
-            )
+                user_id = uuid.uuid4()
+                password_hash = hashlib.sha256(password.encode()).hexdigest()
+                
+                sentinel_client.execute(
+                    "data.insert", 
+                    {"entity": "users", "data": {
+                        "id": user_id, 
+                        "email": email, 
+                        "password_hash": password_hash, 
+                        "role": "admin", 
+                        "tenant_id": tenant_id
+                    }}
+                )
 
-            # Insert Cash Box via Sentinel
-            sentinel_client.execute(
-                "data.insert", 
-                {"entity": "cash_box", "data": {
-                    "id": uuid.uuid4(),
-                    "tenant_id": tenant_id,
-                    "abierta": False
-                }}
-            )
+                sentinel_client.execute(
+                    "data.insert", 
+                    {"entity": "cash_box", "data": {
+                        "id": uuid.uuid4(),
+                        "tenant_id": tenant_id,
+                        "abierta": False
+                    }}
+                )
 
-            # Blueprint Onboarding
-            self._apply_onboarding_blueprint(tenant_id, business_name)
+                self._apply_onboarding_blueprint(tenant_id, business_name)
+            except ConnectionError:
+                return {"success": False, "error": "Error de conexión con la base de datos durante el registro."}
 
             token = self.create_token(tenant_id, user_id, "admin", plan)
             return {
@@ -87,52 +90,59 @@ class AuthService:
             return {"success": False, "error": str(e)}
 
     def _apply_onboarding_blueprint(self, tenant_id, business_name):
-        simple_name = business_name.lower().replace(" ", "-")
-        sentinel_client.execute(
-            "data.insert", 
-            {"entity": "bot_settings", "data": {
-                "tenant_id": tenant_id,
-                "bot_name": f"Asistente de {business_name}",
-                "welcome": f"Hola! Bienvenido a {business_name}",
-                "is_global_active": True
-            }}
-        )
+        try:
+            simple_name = business_name.lower().replace(" ", "-")
+            sentinel_client.execute(
+                "data.insert", 
+                {"entity": "bot_settings", "data": {
+                    "tenant_id": tenant_id,
+                    "bot_name": f"Asistente de {business_name}",
+                    "welcome": f"Hola! Bienvenido a {business_name}",
+                    "is_global_active": True
+                }}
+            )
+        except ConnectionError:
+            pass # Non-critical failure
 
     def authenticate(self, email: str, password: str) -> dict | None:
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         
-        user_res = sentinel_client.execute(
-            "data.query", 
-            {"entity": "users", "filters": {"email": email, "password_hash": password_hash}}
-        )
+        try:
+            user_res = sentinel_client.execute(
+                "data.query", 
+                {"entity": "users", "filters": {"email": email, "password_hash": password_hash}}
+            )
 
-        if not user_res.get("success") or not user_res.get("data"):
-            return None
-        
-        user = user_res["data"][0]
-        tenant_id = user["tenant_id"]
-        
-        tenant_res = sentinel_client.execute(
-            "data.query", 
-            {"entity": "tenants", "filters": {"id": tenant_id}}
-        )
-        
-        if not tenant_res.get("success") or not tenant_res.get("data"):
-            return None
+            if not user_res.get("success") or not user_res.get("data"):
+                return None
             
-        tenant = tenant_res["data"][0]
-        token = self.create_token(tenant["id"], user["id"], user["role"], tenant["plan"])
-        return {
-            "token": token,
-            "tenant_id": tenant["id"],
-            "user_id": user["id"],
-            "user": {
-                "username": user["email"],
-                "business_name": tenant["name"],
-                "role": user["role"],
-                "plan": tenant["plan"],
-            },
-        }
+            user = user_res["data"][0]
+            tenant_id = user["tenant_id"]
+            
+            tenant_res = sentinel_client.execute(
+                "data.query", 
+                {"entity": "tenants", "filters": {"id": tenant_id}}
+            )
+            
+            if not tenant_res.get("success") or not tenant_res.get("data"):
+                return None
+                
+            tenant = tenant_res["data"][0]
+            token = self.create_token(tenant["id"], user["id"], user["role"], tenant["plan"])
+            return {
+                "token": token,
+                "tenant_id": tenant["id"],
+                "user_id": user["id"],
+                "user": {
+                    "username": user["email"],
+                    "business_name": tenant["name"],
+                    "role": user["role"],
+                    "plan": tenant["plan"],
+                },
+            }
+        except ConnectionError:
+            # We return None or raise a specific exception that the API can handle
+            return None
 
     def create_token(self, tenant_id, user_id, role, plan=None) -> str:
         payload = {
