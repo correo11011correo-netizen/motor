@@ -83,8 +83,3 @@ if __name__ == "__main__":
     port = int(os.getenv("MOTOR_PORT", 8001))
     logger.info(f"Starting Evolution SaaS Motor on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
-
-if __name__ == "__main__":
-    port = int(os.getenv("MOTOR_PORT", 8001))
-    logger.info(f"Starting Evolution SaaS Motor on port {port}...")
-    uvicorn.run(app, host="0.0.0.0", port=port)
