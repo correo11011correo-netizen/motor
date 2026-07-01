@@ -31,6 +31,7 @@ app.add_middleware(
 )
 
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse
 
 # Rutas
 app.include_router(control_router)
@@ -41,7 +42,7 @@ app.mount("/static", StaticFiles(directory="evolution/frontend"), name="static")
 async def proxy_admin_index():
     async with httpx.AsyncClient() as client:
         response = await client.get("http://localhost:8001/")
-        return response.content
+        return HTMLResponse(content=response.text, status_code=response.status_code)
 
 @app.get("/admin/static/{path:path}")
 async def proxy_admin_static(path: str):
@@ -62,7 +63,6 @@ async def proxy_admin_api_post(path: str, request: Request):
         response = await client.post(f"http://localhost:8001/api/{path}", json=body)
         return response.json()
 # --------------------------------------------------
-
 @app.post("/auth/register")
 async def register(data: dict):
     """Registro de nuevo Tenant y Usuario Administrador."""
