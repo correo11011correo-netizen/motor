@@ -58,13 +58,18 @@ async def proxy_admin_static(path: str):
 @app.get("/admin/api/{path:path}")
 async def proxy_admin_api(path: str):
     response = await http_client.get(f"http://localhost:8001/api/{path}")
-    return response.json()
+    if "application/json" in response.headers.get("Content-Type", ""):
+        return response.json()
+    return Response(content=response.content, status_code=response.status_code)
 
 @app.post("/admin/api/{path:path}")
 async def proxy_admin_api_post(path: str, request: Request):
     body = await request.json()
     response = await http_client.post(f"http://localhost:8001/api/{path}", json=body)
-    return response.json()
+    if "application/json" in response.headers.get("Content-Type", ""):
+        return response.json()
+    return Response(content=response.content, status_code=response.status_code)
+
 # --------------------------------------------------
 @app.post("/auth/register")
 async def register(data: dict):
