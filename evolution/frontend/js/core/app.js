@@ -16,29 +16,139 @@ window.App = {
         try {
             UI.showLoading();
             
+            const token = localStorage.getItem('evolution_token');
+            if (!token) {
+                this.showAuthScreen();
+                UI.hideLoading();
+                return;
+            }
+
             // 1. Fetch UX Configuration from Backend
-            const res = await API.execute('ux.get_config', {});
-            this.state.user = res.data.user;
-            this.state.config = res.data.config;
+            const res = await API.getUXConfig();
+            
+            // The backend /api/ux/config now returns user data if token is present
+            this.state.user = res.user || { username: 'Usuario', role: 'employee' };
+            this.state.config = res.config || res.panels ? { 
+                menu: res.panels.map(p => ({ id: p.id, label: p.label, icon: p.icon })),
+                default_module: 'sales'
+            } : null;
 
             // 2. Setup UI
             this.renderUserProfile();
             this.renderNavigation();
             
             // 3. Load Default Module
-            const defaultModule = this.state.config.default_module || 'sales';
+            const defaultModule = this.state.config?.default_module || 'sales';
             this.loadModule(defaultModule);
 
             UI.hideLoading();
         } catch (e) {
             console.error("Initialization error:", e);
-            UI.render('app-content', `
-                <div class="error-container" style="text-align: center; padding: var(--spacing-lg);">
-                    <h2>❌ Error de Sesión</h2>
-                    <p class="text-muted">${e.message}</p>
-                    <button class="btn btn-primary" onclick="location.reload()">Reintentar</button>
+            localStorage.removeItem('evolution_token');
+            this.showAuthScreen();
+            UI.hideLoading();
+        }
+    },
+
+    showAuthScreen() {
+        UI.render('app-root', `
+            <div class="auth-container">
+                <div class="auth-card">
+                    <div class="auth-header">
+                        <span class="logo-icon">🚀</span>
+                        <h1>Evolution SaaS</h1>
+                        <p>Gestión Inteligente de Negocios</p>
+                    </div>
+                    
+                    <div class="auth-tabs">
+                        <button class="auth-tab active" onclick="App.switchAuthTab('login')">Iniciar Sesión</button>
+                        <button class="auth-tab" onclick="App.switchAuthTab('register')">Registro</button>
+                    </div>
+
+                    <div id="auth-body" class="auth-body">
+                        <!-- Form loaded by switchAuthTab -->
+                    </div>
                 </div>
-            `);
+            </div>
+        `);
+        this.switchAuthTab('login');
+    },
+
+    switchAuthTab(type) {
+        const body = document.getElementById('auth-body');
+        const tabs = document.querySelectorAll('.auth-tab');
+        tabs.forEach(t => t.classList.toggle('active', t.innerText.toLowerCase().includes(type === 'login' ? 'sesión' : 'registro')));
+
+        if (type === 'login') {
+            body.innerHTML = `
+                <form onsubmit="App.handleLogin(event)" class="auth-form">
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="login-email" required placeholder="tu@email.com">
+                    </div>
+                    <div class="input-group">
+                        <label>Contraseña</label>
+                        <input type="password" id="login-password" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+                </form>
+            `;
+        } else {
+            body.innerHTML = `
+                <form onsubmit="App.handleRegister(event)" class="auth-form">
+                    <div class="input-group">
+                        <label>Nombre del Negocio</label>
+                        <input type="text" id="reg-business" required placeholder="Mi Supermercado">
+                    </div>
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="reg-email" required placeholder="tu@email.com">
+                    </div>
+                    <div class="input-group">
+                        <label>Contraseña</label>
+                        <input type="password" id="reg-password" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Crear Cuenta</button>
+                </form>
+            `;
+        }
+    },
+
+    async handleLogin(e) {
+        e.preventDefault();
+        UI.showLoading();
+        try {
+            const data = {
+                email: document.getElementById('login-email').value,
+                password: document.getElementById('login-password').value
+            };
+            const res = await API.authLogin(data);
+            localStorage.setItem('evolution_token', res.token);
+            location.reload();
+        } catch (e) {
+            UI.toast(e.message, 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    },
+
+    async handleRegister(e) {
+        e.preventDefault();
+        UI.showLoading();
+        try {
+            const data = {
+                business_name: document.getElementById('reg-business').value,
+                email: document.getElementById('reg-email').value,
+                password: document.getElementById('reg-password').value,
+                plan: 'free'
+            };
+            const res = await API.authRegister(data);
+            localStorage.setItem('evolution_token', res.token);
+            location.reload();
+        } catch (e) {
+            UI.toast(e.message, 'error');
+        } finally {
+            UI.hideLoading();
         }
     },
 
