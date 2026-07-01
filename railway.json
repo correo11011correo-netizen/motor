@@ -4,6 +4,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python3 -m evolution.admin.server"
+    "startCommand": "bash start.sh"
   }
 }
