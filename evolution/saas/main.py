@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Header, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import time
 import os
 import uvicorn
 import httpx
@@ -8,6 +9,7 @@ import httpx
 from evolution.saas.core.control_api import router as control_router
 from evolution.saas.core.ux_manager import ux_manager
 from evolution.saas.core.auth import auth_service
+
 
 # Configuración de Logging
 logging.basicConfig(
@@ -22,9 +24,26 @@ app = FastAPI(
     description="The 'Slave' component of the Evolution Ecosystem. Manages business logic and dynamic DB connections.",
 )
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = (time.time() - start_time) * 1000
+    
+    # Format log exactly like Uvicorn but going through our logger to hit the file
+    log_msg = f'{request.client.host}:{request.client.port} - "{request.method} {request.url.path} HTTP/1.1" {response.status_code} processed in {process_time:.2f}ms'
+    
+    if response.status_code >= 400:
+        logger.error(log_msg)
+    else:
+        logger.info(log_msg)
+        
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+# ... existing imports ...
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
