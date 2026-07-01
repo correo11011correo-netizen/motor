@@ -76,6 +76,7 @@ async def get_ux_config(
 
 @app.get("/")
 async def root():
+    # Trigger build for Railway deployment
     return {
         "system": "Evolution SaaS Motor",
         "status": "Online",
