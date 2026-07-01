@@ -29,8 +29,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.staticfiles import StaticFiles
+
 # Rutas
 app.include_router(control_router)
+app.mount("/static", StaticFiles(directory="evolution/frontend"), name="static")
 
 @app.post("/auth/register")
 async def register(data: dict):
@@ -71,14 +74,11 @@ async def get_ux_config(
             
     return ux_manager.get_user_interface(role, plan)
 
+from fastapi.responses import FileResponse
+
 @app.get("/")
 async def root():
-    # Trigger build for Railway deployment
-    return {
-        "system": "Evolution SaaS Motor",
-        "status": "Online",
-        "message": "Motor is running. Now supporting Auth, UX and Business Logic.",
-    }
+    return FileResponse("evolution/frontend/index.html")
 
 if __name__ == "__main__":
     port = int(os.getenv("MOTOR_PORT", 8000))
