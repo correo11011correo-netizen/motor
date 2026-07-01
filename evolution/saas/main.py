@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Header, Request
+from fastapi import FastAPI, Depends, HTTPException, Header, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
@@ -33,6 +33,9 @@ app.add_middleware(
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 
+# Global HTTP Client for Proxying
+http_client = httpx.AsyncClient(timeout=10.0)
+
 # Rutas
 app.include_router(control_router)
 app.mount("/static", StaticFiles(directory="evolution/frontend"), name="static")
@@ -40,28 +43,28 @@ app.mount("/static", StaticFiles(directory="evolution/frontend"), name="static")
 # --- PROXY PARA EL SISTEMA DE MONITOREO (/admin) ---
 @app.get("/admin")
 async def proxy_admin_index():
-    async with httpx.AsyncClient() as client:
-        response = await client.get("http://localhost:8001/")
-        return HTMLResponse(content=response.text, status_code=response.status_code)
+    response = await http_client.get("http://localhost:8001/")
+    return HTMLResponse(content=response.text, status_code=response.status_code)
 
 @app.get("/admin/static/{path:path}")
 async def proxy_admin_static(path: str):
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f"http://localhost:8001/static/{path}")
-        return response.content
+    response = await http_client.get(f"http://localhost:8001/static/{path}")
+    return Response(
+        content=response.content, 
+        status_code=response.status_code, 
+        headers={"Content-Type": response.headers.get("Content-Type", "application/octet-stream")}
+    )
 
 @app.get("/admin/api/{path:path}")
 async def proxy_admin_api(path: str):
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f"http://localhost:8001/api/{path}")
-        return response.json()
+    response = await http_client.get(f"http://localhost:8001/api/{path}")
+    return response.json()
 
 @app.post("/admin/api/{path:path}")
 async def proxy_admin_api_post(path: str, request: Request):
     body = await request.json()
-    async with httpx.AsyncClient() as client:
-        response = await client.post(f"http://localhost:8001/api/{path}", json=body)
-        return response.json()
+    response = await http_client.post(f"http://localhost:8001/api/{path}", json=body)
+    return response.json()
 # --------------------------------------------------
 @app.post("/auth/register")
 async def register(data: dict):
