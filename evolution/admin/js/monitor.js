@@ -5,12 +5,20 @@ const WS_BASE = `ws://${window.location.host}/ws/logs`;
 const led = document.getElementById("status-led");
 const statusText = document.getElementById("status-text");
 const dbUrlInput = document.getElementById("db-url");
+const dbTokenInput = document.getElementById("db-token");
 const btnLink = document.getElementById("btn-link");
 const btnDisconnect = document.getElementById("btn-disconnect");
 const infoMotor = document.getElementById("info-motor");
 const infoUrl = document.getElementById("info-url");
 const logOutput = document.getElementById("log-output");
 const btnClearLogs = document.getElementById("btn-clear-logs");
+
+// Persistence Helpers
+const storage = {
+    save: (key, value) => localStorage.setItem(`ecc_${key}`, value),
+    get: (key) => localStorage.getItem(`ecc_${key}`),
+    clear: (key) => localStorage.removeItem(`ecc_${key}`)
+};
 
 // Helper: Add log entry
 function addLog(message, type = "system") {
@@ -65,7 +73,7 @@ async function syncStatus() {
             led.className = "led green";
             statusText.innerText = "CONNECTED";
             infoMotor.innerText = "Online & Linked";
-            infoUrl.innerText = data.current_url;
+            infoUrl.innerText = data.admin_url;
         } else {
             led.className = "led red";
             statusText.innerText = "DISCONNECTED";
@@ -80,33 +88,39 @@ async function syncStatus() {
     }
 }
 
-// Link database (The Variant)
+// Link database (Sentinel Admin)
 async function linkDatabase() {
     const url = dbUrlInput.value.trim();
-    if (!url) {
-        addLog("Please enter a database URL (variant).", "warn");
+    const token = dbTokenInput.value.trim();
+
+    if (!url || !token) {
+        addLog("Please enter both Admin URL and Token.", "warn");
         return;
     }
 
+    // Save to local storage for persistence
+    storage.save("admin_url", url);
+    storage.save("admin_token", token);
+
     btnLink.disabled = true;
-    addLog(`Attempting to link variant: ${url}...`, "system");
+    addLog(`Attempting to link to Sentinel: ${url}...`, "system");
 
     try {
         const response = await fetch(`${API_BASE}/link`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url })
+            body: JSON.stringify({ url, token })
         });
         const data = await response.json();
 
         if (response.ok) {
-            addLog("Success: Motor successfully linked to database!", "success");
+            addLog("Success: Motor successfully linked to DB-Sentinel!", "success");
             syncStatus();
         } else {
-            addLog(`Error: ${data.detail || "Failed to link database"}`, "error");
+            addLog(`Error: ${data.detail || "Failed to link Sentinel"}`, "error");
         }
     } catch (error) {
-        addLog("Network error while linking database.", "error");
+        addLog("Network error while linking Sentinel.", "error");
     } finally {
         btnLink.disabled = false;
     }
@@ -122,7 +136,7 @@ async function disconnectDatabase() {
             syncStatus();
         }
     } catch (error) {
-        addLog("Error while disconnecting database.", "error");
+        addLog("Error while disconnecting Sentinel.", "error");
     }
 }
 
@@ -134,8 +148,18 @@ btnClearLogs.addEventListener("click", () => {
     addLog("Logs cleared.", "system");
 });
 
-// Initial Sync and Poll
-syncStatus();
-setInterval(syncStatus, 5000);
-connectLogStream(); // Start the live log stream
- // Refresh status every 5 seconds
+// INITIALIZATION
+function init() {
+    // Load persisted credentials
+    const savedUrl = storage.get("admin_url");
+    const savedToken = storage.get("admin_token");
+
+    if (savedUrl) dbUrlInput.value = savedUrl;
+    if (savedToken) dbTokenInput.value = savedToken;
+
+    syncStatus();
+    setInterval(syncStatus, 5000);
+    connectLogStream();
+}
+
+init();

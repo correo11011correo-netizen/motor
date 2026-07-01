@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 from playwright.async_api import async_playwright, expect
@@ -30,14 +29,16 @@ if (document.readyState === 'complete') {
 }
 """
 
+
 async def run_professional_audit():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
         await context.add_init_script(TOAST_OBSERVER_JS)
         page = await context.new_page()
-        
+
         api_logs = []
+
         async def handle_response(response):
             if "/exec" in response.url or "/api" in response.url:
                 try:
@@ -46,7 +47,9 @@ async def run_professional_audit():
                         body = json.loads(text)
                     except:
                         body = text
-                    api_logs.append({"url": response.url, "status": response.status, "body": body})
+                    api_logs.append(
+                        {"url": response.url, "status": response.status, "body": body}
+                    )
                     print(f"📡 [API] {response.status} | {response.url} -> {body}")
                 except:
                     pass
@@ -59,7 +62,7 @@ async def run_professional_audit():
         async def log_step(name, success, action_desc=""):
             toasts = await get_captured_toasts()
             await page.evaluate("window.__toast_log = []")
-            last_toast = toasts[-1]['text'] if toasts else "No toast"
+            last_toast = toasts[-1]["text"] if toasts else "No toast"
             status = "✅ PASS" if success else "❌ FAIL"
             print(f"{status} | {name} | {action_desc} | Last Toast: {last_toast}")
             return status
@@ -91,10 +94,16 @@ async def run_professional_audit():
         await page.fill("#entity-name", special_name)
         await page.click("button:has-text('+')")
         try:
-            await expect(page.locator(f"text={special_name}")).to_be_visible(timeout=5000)
+            await expect(page.locator(f"text={special_name}")).to_be_visible(
+                timeout=5000
+            )
             await log_step("Entity Special Name", True, f"Creacion de {special_name}")
         except:
-            await log_step("Entity Special Name", False, f"La entidad {special_name} no se visualizo")
+            await log_step(
+                "Entity Special Name",
+                False,
+                f"La entidad {special_name} no se visualizo",
+            )
 
         # Usuarios
         print("Testing: Usuarios y Roles...")
@@ -108,6 +117,7 @@ async def run_professional_audit():
 
         await browser.close()
         print("Auditoria Completada.")
+
 
 if __name__ == "__main__":
     asyncio.run(run_professional_audit())

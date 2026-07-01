@@ -1,62 +1,56 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from .db import db_manager
+
+from .sentinel import sentinel
 
 router = APIRouter(prefix="/control", tags=["System Control"])
 
 
 class ConnectionRequest(BaseModel):
     url: str
+    token: str
 
 
 class SystemStatus(BaseModel):
     connected: bool
-    current_url: str | None
+    admin_url: str | None
 
 
 @router.post("/connect")
-async def connect_db(request: ConnectionRequest):
+async def connect_sentinel(request: ConnectionRequest):
     """
-    Víncula el motor a una base de datos específica mediante la variante (URL).
+    Vincular el motor al Administrador de DB (DB-Sentinel) mediante URL y Token.
     """
-    success = db_manager.update_connection(request.url)
+    success = sentinel.link(request.url, request.token)
     if not success:
         raise HTTPException(
             status_code=400,
-            detail="Could not link to the provided database variant. Check logs for details.",
+            detail="Could not link to DB-Sentinel. Check the URL and Admin Token.",
         )
 
     return {
         "status": "success",
-        "message": "Motor successfully linked to the database variant.",
-        "details": {
-            "connected": db_manager.is_connected,
-            "url": db_manager.current_url,
-        },
+        "message": "Motor successfully linked to DB-Sentinel.",
+        "details": {"connected": sentinel.is_connected, "admin_url": sentinel.url},
     }
 
 
 @router.post("/disconnect")
-async def disconnect_db():
+async def disconnect_sentinel():
     """
-    Desvincula el motor de la base de datos actual.
+    Desvincular el motor del Administrador de DB.
     """
-    db_manager.disconnect()
+    sentinel.disconnect()
     return {
         "status": "success",
         "message": "Motor returned to DISCONNECTED state.",
-        "details": {
-            "connected": db_manager.is_connected,
-            "url": db_manager.current_url,
-        },
+        "details": {"connected": sentinel.is_connected, "admin_url": sentinel.url},
     }
 
 
 @router.get("/status")
 async def get_status():
     """
-    Retorna el estado actual de la conexión del motor.
+    Retorna el estado actual de la vinculación con el Administrador.
     """
-    return SystemStatus(
-        connected=db_manager.is_connected, current_url=db_manager.current_url
-    )
+    return SystemStatus(connected=sentinel.is_connected, admin_url=sentinel.url)

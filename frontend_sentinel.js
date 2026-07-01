@@ -27,7 +27,7 @@ const { chromium } = require('playwright');
 
         try {
             await page.goto(URL, { waitUntil: 'networkidle' });
-            
+
             await page.evaluate(() => {
                 const targetNode = document.getElementById('toast-container');
                 if (!targetNode) return;
@@ -50,7 +50,7 @@ const { chromium } = require('playwright');
 
             if (await page.isVisible('#admin-dashboard')) {
                 console.log(`- Login Exitoso.`);
-                
+
                 // Navegar al Gestor de Datos
                 const navSelector = options.viewport && options.viewport.width < 768 ? '#mob-nav-entities' : '#nav-entities';
                 await page.click(navSelector);
@@ -66,7 +66,7 @@ const { chromium } = require('playwright');
                     const currentEntities = await page.$$('.entity-item');
                     const entity = currentEntities[i];
                     const entityText = await entity.innerText();
-                    
+
                     console.log(`  -> Probando entidad: [${entityText}]`);
                     await entity.click();
                     await page.waitForTimeout(1000);
@@ -83,7 +83,7 @@ const { chromium } = require('playwright');
                         } else {
                             console.log(`    ✅ Datos cargados correctamente.`);
                         }
-                        
+
                         // Probar botón volver
                         await page.click('.btn-back');
                         await page.waitForTimeout(500);

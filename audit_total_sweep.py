@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 from playwright.async_api import async_playwright, expect
@@ -30,13 +29,14 @@ if (document.readyState === 'complete') {
 }
 """
 
+
 async def run_total_sweep_audit():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
         await context.add_init_script(TOAST_OBSERVER_JS)
         page = await context.new_page()
-        
+
         async def handle_response(response):
             if "/exec" in response.url or "/api" in response.url:
                 try:
@@ -57,7 +57,7 @@ async def run_total_sweep_audit():
         async def log_action(name, success, action_desc=""):
             toasts = await get_captured_toasts()
             await page.evaluate("window.__toast_log = []")
-            last_toast = toasts[-1]['text'] if toasts else "No toast"
+            last_toast = toasts[-1]["text"] if toasts else "No toast"
             status = "✅ PASS" if success else "❌ FAIL"
             print(f"{status} | {name} | {action_desc} | Toast: {last_toast}")
             return success
@@ -84,7 +84,7 @@ async def run_total_sweep_audit():
         # Usamos .last() para evitar el strict mode violation
         await expect(page.locator(".toast").last).to_be_visible(timeout=10000)
         await log_action("Format All", True, "Borrado DB")
-        
+
         await page.click("button:has-text('Ejecutar Init')")
         await expect(page.locator(".toast").last).to_be_visible(timeout=10000)
         await log_action("Init System", True, "Reconstruccion DB")
@@ -92,58 +92,70 @@ async def run_total_sweep_audit():
         # 3. GESTOR DE DATOS (Tenant-Entity Hierarchy)
         print("Step 3: Data Sweep (Multi-tenant Hierarchy)")
         await page.click("#nav-entities")
-        
+
         try:
             # 3.1 Validar carga de Tenants
-            await expect(page.locator(".tenant-item").first).to_be_visible(timeout=10000)
+            await expect(page.locator(".tenant-item").first).to_be_visible(
+                timeout=10000
+            )
             tenants = await page.locator(".tenant-item").all()
             await log_action("Tenants Load", True, f"Found {len(tenants)} tenants")
-            
+
             # 3.2 Navegar dentro de un Tenant
             first_tenant = tenants[0]
             await first_tenant.click()
-            await expect(page.locator(".list-header .btn-back")).to_be_visible(timeout=5000)
+            await expect(page.locator(".list-header .btn-back")).to_be_visible(
+                timeout=5000
+            )
             await log_action("Tenant Navigation", True, "Entered tenant context")
-            
+
             # 3.3 Gestión de Entidades dentro del Tenant
             entity_name = "Sweep_Entity"
             await page.fill("#entity-name", entity_name)
             await page.click("button:has-text('+')")
             await expect(page.locator(".toast").last).to_be_visible(timeout=10000)
-            
+
             # Verificar que la entidad aparece en la sub-lista
-            await expect(page.locator(f"text={entity_name}").last).to_be_visible(timeout=5000)
+            await expect(page.locator(f"text={entity_name}").last).to_be_visible(
+                timeout=5000
+            )
             await page.locator(f"text={entity_name}").last.click()
             await expect(page.locator("#data-viewer")).to_be_visible(timeout=5000)
-            await log_action("Entity Lifecycle", True, f"Created and viewed {entity_name}")
-            
+            await log_action(
+                "Entity Lifecycle", True, f"Created and viewed {entity_name}"
+            )
+
             # 3.4 Probar retorno a la lista de Tenants
             await page.click(".list-header .btn-back")
             await expect(page.locator(".tenant-item").first).to_be_visible(timeout=5000)
             await log_action("Return to Root", True, "Returned to tenant list")
-            
+
         except Exception as e:
             await log_action("Data Sweep", False, f"Failed: {str(e)}")
 
         # 4. CENTRO DE IDENTIDADES
         print("Step 4: Identity Center Sweep")
         await page.click("#nav-users")
-        
+
         id_cards = [
             {"btn": "Ver Tenants", "label": "Tenants"},
             {"btn": "Ver Tokens", "label": "API Keys"},
             {"btn": "Ver Admins", "label": "Admins"},
-            {"btn": "Ver Roles", "label": "Roles"}
+            {"btn": "Ver Roles", "label": "Roles"},
         ]
 
         for card in id_cards:
             try:
                 await page.click(f"button:has-text('{card['btn']}')")
-                await expect(page.locator("#user-data-viewer")).to_be_visible(timeout=5000)
+                await expect(page.locator("#user-data-viewer")).to_be_visible(
+                    timeout=5000
+                )
                 await log_action("Identity Card", True, f"Loaded {card['label']}")
                 await page.click("button:has-text('Cerrar')")
             except Exception as e:
-                await log_action("Identity Card", False, f"Failed {card['label']}: {str(e)}")
+                await log_action(
+                    "Identity Card", False, f"Failed {card['label']}: {str(e)}"
+                )
 
         # 5. LOGOUT
         print("Step 5: Logout")
@@ -159,6 +171,7 @@ async def run_total_sweep_audit():
 
         await browser.close()
         print("Barrido Total Completado.")
+
 
 if __name__ == "__main__":
     asyncio.run(run_total_sweep_audit())
