@@ -64,7 +64,7 @@ class DataCommandHandler:
                 for i, (key, value) in enumerate(filters.items()):
                     param_name = f"f{i}"
                     safe_key = self._sanitize_identifier(key)
-                    where_clauses.append(f'("{safe_key}" = :{param_name} OR data->>'{safe_key}' = :{param_name})')
+                    where_clauses.append(f"(\"{safe_key}\" = :{param_name} OR data->>'{safe_key}' = :{param_name})")
                     params[param_name] = value
 
             if where_clauses:
