@@ -4,6 +4,7 @@ import json
 import os
 import secrets
 import uuid
+from typing import Any
 
 import jwt
 from .sentinel import sentinel_client
