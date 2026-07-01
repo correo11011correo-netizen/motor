@@ -180,6 +180,7 @@ async def serve_index():
 
 
 if __name__ == "__main__":
-    # El Maestro corre en el puerto 8001
-    logger.info("Starting Evolution Control Center on port 8001...")
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    # El Maestro corre en el puerto definido por ADMIN_PORT o 8001 por defecto
+    port = int(os.getenv("ADMIN_PORT", 8001))
+    logger.info(f"Starting Evolution Control Center on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
