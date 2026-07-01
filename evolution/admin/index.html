@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECC | Evolution Control Center</title>
+    <link rel="stylesheet" href="/static/css/console.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="console-container">
+        <!-- Header / Top Bar -->
+        <header class="top-bar">
+            <div class="brand">
+                <i class="fas fa-terminal"></i>
+                <span>EVOLUTION <span class="highlight">CONTROL CENTER</span></span>
+            </div>
+            <div class="system-status">
+                <div id="status-led" class="led red"></div>
+                <span id="status-text">DISCONNECTED</span>
+            </div>
+        </header>
+
+        <main class="main-grid">
+            <!-- Left Column: Control Panel -->
+            <section class="control-panel">
+                <div class="card">
+                    <h3><i class="fas fa-database"></i> DB Connection (Variant)</h3>
+                    <div class="input-group">
+                        <input type="text" id="db-url" placeholder="postgresql://user:pass@host:port/db" spellcheck="false">
+                    </div>
+                    <div class="button-group">
+                        <button id="btn-link" class="btn-primary">
+                            <i class="fas fa-link"></i> Vincular Base de Datos
+                        </button>
+                        <button id="btn-disconnect" class="btn-danger">
+                            <i class="fas fa-unlink"></i> Desvincular
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3><i class="fas fa-info-circle"></i> System Info</h3>
+                    <div class="info-row">
+                        <span>Motor Status:</span>
+                        <span id="info-motor" class="value">Checking...</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Active Variant:</span>
+                        <span id="info-url" class="value">None</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Real-time Logs -->
+            <section class="log-section">
+                <div class="log-header">
+                    <h3><i class="fas fa-stream"></i> System Live Stream</h3>
+                    <div class="log-controls">
+                        <button id="btn-clear-logs" class="btn-small">Clear</button>
+                    </div>
+                </div>
+                <div id="log-output" class="log-window">
+                    <div class="log-entry system">Welcome to Evolution Control Center. Awaiting motor connection...</div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/static/js/monitor.js"></script>
+</body>
+</html>
