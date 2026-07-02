@@ -23,8 +23,8 @@ class SentinelClient:
         self._load_config()
 
     def _load_config(self):
-        """Carga la configuración desde el archivo compartido por el Panel Admin."""
-        config_path = "admin/admin_config.json"
+        """Carga la configuración desde el archivo persistente en la raíz del proyecto."""
+        config_path = "admin_config.json"
         if os.path.exists(config_path):
             try:
                 with open(config_path, "r") as f:
@@ -67,6 +67,32 @@ class SentinelClient:
         except Exception as e:
             logger.error(f"Connection error: {e}")
             return False
+
+    def update_config(self, url: str, token: str, tenants: Optional[Dict[str, Any]] = None):
+        """
+        Actualiza la configuración en memoria y en disco.
+        Permite cambiar la conexión sin reiniciar el servidor.
+        """
+        self._url = url.rstrip("/")
+        self._admin_token = token
+        
+        if tenants:
+            self._tenants = tenants
+
+        # Persistencia inmediata en disco (Única fuente de verdad)
+        try:
+            with open("admin_config.json", "w") as f:
+                json.dump({
+                    "url": self._url,
+                    "token": self._admin_token,
+                    "tenants": self._tenants
+                }, f, indent=4)
+            logger.info("Configuration persisted to disk.")
+        except Exception as e:
+            logger.error(f"Failed to persist config: {e}")
+
+        # Intentamos validar la conexión inmediatamente
+        self.link(url, token)
 
     def add_tenant(self, tenant_id: str, token: str):
         """Registra un tenant y su token de acceso."""

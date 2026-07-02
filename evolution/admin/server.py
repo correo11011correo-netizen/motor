@@ -23,7 +23,6 @@ app = FastAPI(
     description="The 'Master' component of the Evolution Ecosystem. Orchestrates the Motor and monitors system health.",
 )
 
-CONFIG_FILE = "admin_config.json"
 LOG_FILES = [
     "evolution_admin.log",
     "evolution_saas.log",
@@ -31,25 +30,27 @@ LOG_FILES = [
     "generic-db-admin/server.log",
 ]
 
-# --- PERSISTENCIA DE CONFIGURACIÓN GLOBAL ---
+# --- CAPA DE COMUNICACIÓN CON EL MOTOR (FUENTE DE VERDAD) ---
 
-def load_config() -> Dict[str, Any]:
-    """Carga la configuración global de la plataforma."""
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"Error loading config file: {e}")
-    return {}
-
-def save_config(config: Dict[str, Any]):
-    """Guarda la configuración global de la plataforma."""
+async def get_motor_config() -> Dict[str, Any]:
+    """Obtiene la configuración actual directamente desde el Motor."""
     try:
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(config, f, indent=4)
+        async with httpx.AsyncClient() as client:
+            response = await client.get("http://127.0.0.1:8000/admin/internal/config")
+            return response.json()
     except Exception as e:
-        logger.error(f"Error saving config file: {e}")
+        logger.error(f"Error fetching config from Motor: {e}")
+        return {}
+
+async def set_motor_config(config: Dict[str, Any]):
+    """Actualiza la configuración en el Motor."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post("http://127.0.0.1:8000/admin/internal/config", json=config)
+            return response.json()
+    except Exception as e:
+        logger.error(f"Error updating config in Motor: {e}")
+        return {"status": "error", "message": str(e)}
 
 # --- CAPA DE EJECUCIÓN RESILIENTE ---
 
@@ -58,11 +59,17 @@ async def execute_sentinel_command(cmd: str, params: Optional[Dict[str, Any]] = 
     Ejecuta un comando en la API de DB-Sentinel con manejo de errores de estado.
     Retorna un diccionario con la respuesta o un código de error específico.
     """
-    config = load_config()
+    config = await get_motor_config()
     url = config.get("url")
-    token = config.get("token")
+    token = config.get("token") # Nota: get_motor_config devuelve 'token_set', necesitamos el token real.
 
-    if not url or not token:
+    # Para ejecutar comandos, el Admin Server no necesita el token maestro en memoria, 
+    # ya que el Motor es quien hace la llamada final a Sentinel usando su propio token.
+    # Sin embargo, la función execute_sentinel_command actual requiere el token para construir el request.
+    # REFACTOR: Vamos a delegar la ejecución totalmente al Motor si es posible, 
+    # pero por ahora mantenemos la lógica de construcción si el token está disponible.
+    
+    if not url:
         return {
             "status": "error",
             "error_code": "ERR_DB_NOT_CONFIGURED",
@@ -74,8 +81,9 @@ async def execute_sentinel_command(cmd: str, params: Optional[Dict[str, Any]] = 
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
+            # IMPORTANTE: Aquí el Admin Server usa el token que el Motor le proporciona
             headers = {
-                "x-admin-token": token,
+                "x-admin-token": token if token else "UNKNOWN",
                 "Content-Type": "application/json"
             }
             payload = params or {}
@@ -95,6 +103,8 @@ async def execute_sentinel_command(cmd: str, params: Optional[Dict[str, Any]] = 
                 "error_code": "INTERNAL_ERROR",
                 "message": f"Error interno en el servidor Maestro: {str(e)}"
             }
+
+# --- MODELOS ---
 
 # --- MODELOS ---
 
@@ -123,7 +133,7 @@ class ThemeRequest(BaseModel):
 
 @app.get("/admin/api/config")
 async def get_config():
-    config = load_config()
+    config = await get_motor_config()
     return {
         "url": config.get("url"),
         "token_set": "********" if config.get("token") else "Not Set",
@@ -132,11 +142,14 @@ async def get_config():
 
 @app.post("/admin/api/config")
 async def set_config(request: ConfigRequest):
-    config = load_config()
-    config["url"] = request.url
-    config["token"] = request.token
-    save_config(config)
-    return {"status": "success", "message": "Configuración guardada correctamente."}
+    # Guardamos la configuración en el Motor
+    result = await set_motor_config({
+        "url": request.url,
+        "token": request.token
+    })
+    if result.get("status") == "success":
+        return {"status": "success", "message": "Configuración guardada correctamente en el Motor."}
+    raise HTTPException(status_code=500, detail=result.get("message", "Error al guardar config"))
 
 @app.get("/admin/api/test-connection")
 async def test_connection():
@@ -152,14 +165,18 @@ async def create_tenant(request: TenantRequest):
     params = {"name": request.name, "plan": request.plan, "blueprint_id": request.blueprint_id}
     result = await execute_sentinel_command("system.tenant.create", params)
     if result.get("status") == "success":
-        config = load_config()
+        # Actualizamos la configuración en el Motor para incluir el nuevo tenant
+        config = await get_motor_config()
         tenants = config.get("tenants", {})
         tenant_id = result.get("tenant_id")
         api_token = result.get("api_token")
         if tenant_id:
             tenants[tenant_id] = {"name": request.name, "token": api_token, "plan": request.plan}
-            config["tenants"] = tenants
-            save_config(config)
+            await set_motor_config({
+                "url": config.get("url"),
+                "token": config.get("token"),
+                "tenants": tenants
+            })
     return result
 
 @app.get("/admin/api/tenants/list")

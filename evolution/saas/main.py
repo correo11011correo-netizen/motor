@@ -110,6 +110,36 @@ async def proxy_admin_api_post(path: str, request: Request):
         logger.error(f"Admin API POST Proxy Error: {e}")
         raise HTTPException(status_code=502, detail="Admin API unreachable")
 
+# --- ENDPOINTS DE GESTIÓN INTERNA DE CONFIGURACIÓN (Fuente de Verdad) ---
+from saas.core.sentinel import sentinel_client
+
+@app.get("/admin/internal/config")
+async def get_internal_config():
+    """Permite al Servidor Admin leer la configuración actual del Motor."""
+    return {
+        "url": sentinel_client.url,
+        "token": sentinel_client._admin_token,
+        "tenants": sentinel_client._tenants
+    }
+
+@app.post("/admin/internal/config")
+async def update_internal_config(request: Request):
+    """Permite al Servidor Admin actualizar la configuración del Motor."""
+    try:
+        data = await request.json()
+        url = data.get("url")
+        token = data.get("token")
+        tenants = data.get("tenants")
+        
+        if not url or not token:
+            raise HTTPException(status_code=400, detail="URL and Token are required")
+            
+        sentinel_client.update_config(url, token, tenants)
+        return {"status": "success", "message": "Configuration updated in Motor and persisted."}
+    except Exception as e:
+        logger.error(f"Internal Config Update Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.websocket("/admin/ws/logs")
 async def proxy_admin_ws(websocket: WebSocket):
     """Proxy para el flujo de logs en tiempo real del Panel Admin."""
