@@ -1,4 +1,4 @@
-const API_BASE = "/admin/api";
+const API_BASE = "/api";
 const WS_BASE = `ws://${window.location.host}/ws/logs`;
 
 // UI Elements

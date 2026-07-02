@@ -171,12 +171,12 @@ async def websocket_logs(websocket: WebSocket):
 
 
 # Servir archivos estáticos y el frontend
-app.mount("/static", StaticFiles(directory="evolution/admin"), name="static")
+app.mount("/static", StaticFiles(directory="admin"), name="static")
 
 
 @app.get("/")
 async def serve_index():
-    return FileResponse("evolution/admin/index.html")
+    return FileResponse("admin/index.html")
 
 
 if __name__ == "__main__":
