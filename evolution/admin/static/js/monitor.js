@@ -35,11 +35,11 @@ async function syncStatus() {
     try {
         const response = await fetch(`${API_BASE}/status`);
         const data = await response.json();
-        if (data.status === 'connected') {
+        if (data.connected) {
             led.className = 'led green';
             statusText.innerText = 'CONNECTED';
             infoMotor.innerText = 'Active';
-            infoUrl.innerText = data.url || 'Unknown';
+            infoUrl.innerText = data.admin_url || 'Unknown';
         } else {
             led.className = 'led red';
             statusText.innerText = 'DISCONNECTED';
