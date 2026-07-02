@@ -88,7 +88,8 @@ async def proxy_admin_static(path: str):
 @app.get("/admin/api/{path:path}")
 async def proxy_admin_api(path: str):
     try:
-        response = await http_client.get(f"http://127.0.0.1:8001/api/{path}")
+        # Preservar el prefijo /admin para que coincida con el servidor Admin
+        response = await http_client.get(f"http://127.0.0.1:8001/admin/api/{path}")
         if "application/json" in response.headers.get("Content-Type", ""):
             return response.json()
         return Response(content=response.content, status_code=response.status_code)
@@ -100,7 +101,8 @@ async def proxy_admin_api(path: str):
 async def proxy_admin_api_post(path: str, request: Request):
     try:
         body = await request.json()
-        response = await http_client.post(f"http://127.0.0.1:8001/api/{path}", json=body)
+        # Preservar el prefijo /admin para que coincida con el servidor Admin
+        response = await http_client.post(f"http://127.0.0.1:8001/admin/api/{path}", json=body)
         if "application/json" in response.headers.get("Content-Type", ""):
             return response.json()
         return Response(content=response.content, status_code=response.status_code)
