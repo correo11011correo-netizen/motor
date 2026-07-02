@@ -1,10 +1,14 @@
-from fastapi import FastAPI, Depends, HTTPException, Header, Request, Response
+import uvicorn
+from fastapi import FastAPI, Depends, HTTPException, Header, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import time
 import os
 import uvicorn
 import httpx
+import websockets
+
+# Configuración de Logging
 
 from evolution.saas.core.control_api import router as control_router
 from evolution.saas.core.ux_manager import ux_manager
@@ -127,6 +131,28 @@ async def get_ux_config(
         ctx = auth_service.decode_token(token)
         if ctx:
             role, plan = ctx.get("role"), ctx.get("plan")
+            user_info = {
+                "username": ctx.get("user_id"), # Or resolve email from DB
+                "role": role,
+                "plan": plan
+            }
+            
+    return {
+        "user": user_info,
+        "config": ux_manager.get_user_interface(role, plan)
+    }
+
+from fastapi.responses import FileResponse
+
+@app.get("/")
+async def root():
+    return FileResponse("evolution/frontend/index.html")
+
+if __name__ == "__main__":
+    port = int(os.getenv("MOTOR_PORT", 8000))
+    logger.info(f"Starting Evolution SaaS Motor on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
+          role, plan = ctx.get("role"), ctx.get("plan")
             user_info = {
                 "username": ctx.get("user_id"), # Or resolve email from DB
                 "role": role,
