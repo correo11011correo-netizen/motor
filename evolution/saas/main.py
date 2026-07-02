@@ -111,7 +111,7 @@ async def proxy_admin_api_post(path: str, request: Request):
         raise HTTPException(status_code=502, detail="Admin API unreachable")
 
 # --- ENDPOINTS DE GESTIÓN INTERNA DE CONFIGURACIÓN (Fuente de Verdad) ---
-from saas.core.sentinel import sentinel_client
+from evolution.saas.core.sentinel import sentinel_client
 
 @app.get("/admin/internal/config")
 async def get_internal_config():
