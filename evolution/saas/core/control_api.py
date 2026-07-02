@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from typing import List
 
 from .sentinel import sentinel_client
 
@@ -11,15 +12,21 @@ class ConnectionRequest(BaseModel):
     token: str
 
 
+class TenantRequest(BaseModel):
+    tenant_id: str
+    token: str
+
+
 class SystemStatus(BaseModel):
     connected: bool
     admin_url: str | None
+    tenants: List[str] = []
 
 
 @router.post("/connect")
 async def connect_sentinel(request: ConnectionRequest):
     """
-    Vincular el motor al Administrador de DB (DB-Sentinel) mediante URL y Token.
+    Vincular el motor al Administrador de DB (Infraestructura).
     """
     success = sentinel_client.link(request.url, request.token)
     if not success:
@@ -30,7 +37,7 @@ async def connect_sentinel(request: ConnectionRequest):
 
     return {
         "status": "success",
-        "message": "Motor successfully linked to DB-Sentinel.",
+        "message": "Motor successfully linked to DB-Sentinel infrastructure.",
         "details": {
             "connected": sentinel_client.is_connected,
             "admin_url": sentinel_client.url,
@@ -38,11 +45,26 @@ async def connect_sentinel(request: ConnectionRequest):
     }
 
 
+@router.post("/tenants/add")
+async def add_tenant(request: TenantRequest):
+    """Registrar un token de tenant específico en el motor."""
+    if not sentinel_client.is_connected:
+        raise HTTPException(status_code=400, detail="Motor must be linked to Sentinel first.")
+    
+    sentinel_client.add_tenant(request.tenant_id, request.token)
+    return {"status": "success", "message": f"Tenant {request.tenant_id} registered."}
+
+
+@router.delete("/tenants/{tenant_id}")
+async def remove_tenant(tenant_id: str):
+    """Eliminar un tenant del registro del motor."""
+    sentinel_client.remove_tenant(tenant_id)
+    return {"status": "success", "message": f"Tenant {tenant_id} removed."}
+
+
 @router.post("/disconnect")
 async def disconnect_sentinel():
-    """
-    Desvincular el motor del Administrador de DB.
-    """
+    """Desvincular el motor del Administrador de DB."""
     sentinel_client.disconnect()
     return {
         "status": "success",
@@ -56,9 +78,9 @@ async def disconnect_sentinel():
 
 @router.get("/status")
 async def get_status():
-    """
-    Retorna el estado actual de la vinculación con el Administrador.
-    """
+    """Retorna el estado actual y la lista de tenants configurados."""
     return SystemStatus(
-        connected=sentinel_client.is_connected, admin_url=sentinel_client.url
+        connected=sentinel_client.is_connected, 
+        admin_url=sentinel_client.url,
+        tenants=list(sentinel_client._tenants.keys())
     )

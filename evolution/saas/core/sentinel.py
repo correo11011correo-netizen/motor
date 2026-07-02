@@ -12,11 +12,13 @@ class SentinelClient:
     """
     Cliente de Comunicación con DB-Sentinel.
     Sustituye la conexión directa a SQL por una interfaz de comandos API.
+    Soporta un Token Maestro para infraestructura y múltiples Tokens de Tenant.
     """
 
     def __init__(self):
         self._url = None
-        self._token = None
+        self._admin_token = None
+        self._tenants = {} # Map of {tenant_id: token}
         self._is_connected = False
         self._load_config()
 
@@ -32,19 +34,20 @@ class SentinelClient:
                     if url and token:
                         logger.info(f"Auto-linking to Sentinel using persisted config: {url}")
                         self.link(url, token)
+                        # Cargar tenants si existen en el config
+                        tenants = config.get("tenants", {})
+                        self._tenants = tenants
             except Exception as e:
                 logger.error(f"Error loading config from {config_path}: {e}")
 
     def link(self, url: str, token: str) -> bool:
         """
-        Vincular el motor al Administrador de DB utilizando la URL y el Token.
-        Incluye un Smoke Test para validar la interacción real con los datos.
+        Vincular el motor al Administrador de DB (Infraestructura).
         """
         logger.info(f"Attempting to link to Sentinel Admin: {url}")
         base_url = url.rstrip("/")
 
         try:
-            # 1. Validar Conexión Básica (API Status)
             with httpx.Client() as client:
                 response = client.get(
                     f"{base_url}/api/status",
@@ -52,60 +55,59 @@ class SentinelClient:
                     timeout=5.0,
                 )
                 if response.status_code != 200:
-                    logger.error(
-                        f"Sentinel rejected connection. Status: {response.status_code}"
-                    )
-                    return False
-
-                # 2. SMOKE TEST: Intentar una interacción real con los datos
-                # Probamos a leer cualquier entidad o simplemente el estado del sistema
-                # Usamos un comando ligero para verificar que la capa de datos responde
-                test_res = client.post(
-                    f"{base_url}/exec?cmd=plan.list",
-                    headers={"x-admin-token": token},
-                    json={},
-                    timeout=5.0,
-                )
-
-                if test_res.status_code != 200:
-                    logger.error(
-                        "API is up, but data layer is not responding (Smoke Test failed)."
-                    )
                     return False
 
                 self._url = base_url
-                self._token = token
+                self._admin_token = token
                 self._is_connected = True
-                logger.info("Successfully linked to DB-Sentinel and passed smoke test.")
+                logger.info("Successfully linked to DB-Sentinel.")
                 return True
-
         except Exception as e:
-            logger.error(f"Connection error to Sentinel Admin: {e}")
+            logger.error(f"Connection error: {e}")
             return False
+
+    def add_tenant(self, tenant_id: str, token: str):
+        """Registra un tenant y su token de acceso."""
+        self._tenants[tenant_id] = token
+        logger.info(f"Tenant {tenant_id} registered in Motor.")
+
+    def remove_tenant(self, tenant_id: str):
+        """Elimina un tenant del registro."""
+        if tenant_id in self._tenants:
+            del self._tenants[tenant_id]
+            logger.info(f"Tenant {tenant_id} removed.")
 
     def disconnect(self):
         """Desvincular el sistema."""
         self._url = None
-        self._token = None
+        self._admin_token = None
+        self._tenants = {}
         self._is_connected = False
-        logger.info("System disconnected from DB-Sentinel.")
+        logger.info("System disconnected.")
 
     async def execute(
-        self, command: str, params: Optional[Dict[str, Any]] = None
+        self, command: str, params: Optional[Dict[str, Any]] = None, tenant_id: Optional[str] = None
     ) -> Any:
         """
-        Ejecuta un comando en el Administrador de DB.
+        Ejecuta un comando. Usa el token del tenant si se proporciona,
+        de lo contrario usa el token maestro.
         """
         if not self._is_connected:
-            raise ConnectionError(
-                "Motor is DISCONNECTED. Link to Sentinel Admin first."
-            )
+            raise ConnectionError("Motor is DISCONNECTED.")
+
+        # Determinar qué token usar
+        token = self._admin_token
+        if tenant_id:
+            if tenant_id in self._tenants:
+                token = self._tenants[tenant_id]
+            else:
+                raise Exception(f"Tenant {tenant_id} is not configured in this Motor.")
 
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.post(
                     f"{self._url}/exec?cmd={command}",
-                    headers={"x-admin-token": self._token},
+                    headers={"x-admin-token": token},
                     json=params or {},
                     timeout=10.0,
                 )
@@ -123,7 +125,7 @@ class SentinelClient:
                 return result
 
             except httpx.RequestError as e:
-                logger.error(f"Network error executing {command}: {e}")
+                logger.error(f"Network error: {e}")
                 raise ConnectionError(f"Sentinel unreachable: {e}")
 
     async def log_to_db(self, level: str, message: str, tenant: str = "SYSTEM"):
