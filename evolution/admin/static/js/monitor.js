@@ -1,5 +1,6 @@
 const API_BASE = "/admin/api";
-const WS_BASE = `ws://${window.location.host}/ws/logs`;
+const WS_PROTOCOL = window.location.protocol === "https:" ? "wss" : "ws";
+const WS_BASE = `${WS_PROTOCOL}://${window.location.host}/ws/logs`;
 
 // UI Elements
 const led = document.getElementById("status-led");
