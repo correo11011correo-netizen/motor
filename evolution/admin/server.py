@@ -170,24 +170,32 @@ async def websocket_logs(websocket: WebSocket):
         logger.error(f"WebSocket error: {e}")
 
 
-# Get the base directory of the server script
+# Get the base directory of the server script (absolute path)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-logger.info(f"--- DIAGNOSTIC: BASE_DIR = {BASE_DIR}")
-logger.info(f"--- DIAGNOSTIC: STATIC_DIR = {STATIC_DIR}")
-logger.info(f"--- DIAGNOSTIC: STATIC_DIR exists = {os.path.exists(STATIC_DIR)}")
-if os.path.exists(STATIC_DIR):
-    logger.info(f"--- DIAGNOSTIC: STATIC_DIR contents = {os.listdir(STATIC_DIR)}")
+logger.info(f"--- SYSTEM: BASE_DIR resolved to {BASE_DIR}")
+logger.info(f"--- SYSTEM: STATIC_DIR resolved to {STATIC_DIR}")
 
 # Servir archivos estáticos y el frontend
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+@app.get("/api/debug/paths")
+async def debug_paths():
+    """Endpoint de diagnóstico para verificar rutas y existencia de archivos."""
+    return {
+        "base_dir": BASE_DIR,
+        "static_dir": STATIC_DIR,
+        "static_exists": os.path.exists(STATIC_DIR),
+        "index_exists": os.path.exists(os.path.join(BASE_DIR, "index.html")),
+        "css_exists": os.path.exists(os.path.join(STATIC_DIR, "css", "console.css")),
+        "js_exists": os.path.exists(os.path.join(STATIC_DIR, "js", "monitor.js")),
+        "current_working_dir": os.getcwd(),
+    }
 
 @app.get("/")
 async def serve_index():
     index_path = os.path.join(BASE_DIR, "index.html")
-    logger.info(f"--- DIAGNOSTIC: Serving index from {index_path} (exists: {os.path.exists(index_path)})")
     return FileResponse(index_path)
 
 
