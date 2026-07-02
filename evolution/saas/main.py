@@ -65,32 +65,48 @@ app.mount("/static", StaticFiles(directory="evolution/frontend"), name="static")
 # --- PROXY PARA EL SISTEMA DE MONITOREO (/admin) ---
 @app.get("/admin")
 async def proxy_admin_index():
-    response = await http_client.get("http://localhost:8001/")
-    return HTMLResponse(content=response.text, status_code=response.status_code)
+    try:
+        response = await http_client.get("http://127.0.0.1:8001/")
+        return HTMLResponse(content=response.text, status_code=response.status_code)
+    except Exception as e:
+        logger.error(f"Admin Index Proxy Error: {e}")
+        raise HTTPException(status_code=502, detail="Admin Server unreachable")
 
 @app.get("/admin/static/{path:path}")
 async def proxy_admin_static(path: str):
-    response = await http_client.get(f"http://localhost:8001/static/{path}")
-    return Response(
-        content=response.content, 
-        status_code=response.status_code, 
-        headers={"Content-Type": response.headers.get("Content-Type", "application/octet-stream")}
-    )
+    try:
+        response = await http_client.get(f"http://127.0.0.1:8001/static/{path}")
+        return Response(
+            content=response.content, 
+            status_code=response.status_code, 
+            headers={"Content-Type": response.headers.get("Content-Type", "application/octet-stream")}
+        )
+    except Exception as e:
+        logger.error(f"Admin Static Proxy Error: {e}")
+        raise HTTPException(status_code=502, detail="Admin Static files unreachable")
 
 @app.get("/admin/api/{path:path}")
 async def proxy_admin_api(path: str):
-    response = await http_client.get(f"http://localhost:8001/api/{path}")
-    if "application/json" in response.headers.get("Content-Type", ""):
-        return response.json()
-    return Response(content=response.content, status_code=response.status_code)
+    try:
+        response = await http_client.get(f"http://127.0.0.1:8001/api/{path}")
+        if "application/json" in response.headers.get("Content-Type", ""):
+            return response.json()
+        return Response(content=response.content, status_code=response.status_code)
+    except Exception as e:
+        logger.error(f"Admin API GET Proxy Error: {e}")
+        raise HTTPException(status_code=502, detail="Admin API unreachable")
 
 @app.post("/admin/api/{path:path}")
 async def proxy_admin_api_post(path: str, request: Request):
-    body = await request.json()
-    response = await http_client.post(f"http://localhost:8001/api/{path}", json=body)
-    if "application/json" in response.headers.get("Content-Type", ""):
-        return response.json()
-    return Response(content=response.content, status_code=response.status_code)
+    try:
+        body = await request.json()
+        response = await http_client.post(f"http://127.0.0.1:8001/api/{path}", json=body)
+        if "application/json" in response.headers.get("Content-Type", ""):
+            return response.json()
+        return Response(content=response.content, status_code=response.status_code)
+    except Exception as e:
+        logger.error(f"Admin API POST Proxy Error: {e}")
+        raise HTTPException(status_code=502, detail="Admin API unreachable")
 
 @app.websocket("/admin/ws/logs")
 async def proxy_admin_ws(websocket: WebSocket):

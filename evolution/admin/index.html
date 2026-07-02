@@ -2,96 +2,164 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ECC | Evolution Control Center</title>
     <link rel="stylesheet" href="/admin/static/css/console.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="console-container">
-        <!-- Header / Top Bar -->
-        <header class="top-bar">
-            <div class="brand">
-                <i class="fas fa-terminal"></i>
-                <span>EVOLUTION <span class="highlight">CONTROL CENTER</span></span>
+    <header class="top-bar">
+        <div class="brand">
+            <i class="fas fa-terminal"></i>
+            <span>EVOLUTION <span class="highlight">MASTER</span></span>
+        </div>
+        <div class="status-pill">
+            <div id="status-led" class="led red"></div>
+            <span id="status-text">Cargando...</span>
+        </div>
+    </header>
+
+    <!-- VISTA 1: CONFIGURACIÓN & SALUD -->
+    <div id="view-config" class="view active">
+        <div class="card">
+            <h3><i class="fas fa-database"></i> Configuración Motor</h3>
+            <div class="input-group">
+                <input type="text" id="db-url" placeholder="URL de la API">
             </div>
-            <div class="system-status">
-                <div id="status-led" class="led red"></div>
-                <span id="status-text">DISCONNECTED</span>
+            <div class="input-group">
+                <input type="password" id="db-token" placeholder="Admin Token">
             </div>
-        </header>
+            <div class="button-group">
+                <button id="btn-link" class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button>
+                <button id="btn-test" class="btn btn-secondary"><i class="fas fa-plug"></i> Test</button>
+            </div>
+        </div>
 
-        <main class="main-grid">
-            <!-- Left Column: Control Panel -->
-            <section class="control-panel">
-                <!-- DB Infrastructure Card -->
-                <div class="card">
-                    <h3><i class="fas fa-database"></i> DB Infrastructure</h3>
-                    <div class="input-group">
-                        <input type="text" id="db-url" placeholder="https://datos-production.up.railway.app" spellcheck="false">
-                    </div>
-                    <div class="input-group">
-                        <input type="password" id="db-token" placeholder="Admin Token" spellcheck="false">
-                    </div>
-                    <div class="button-group">
-                        <button id="btn-link" class="btn-primary">
-                            <i class="fas fa-link"></i> Vincular DB
-                        </button>
-                        <button id="btn-disconnect" class="btn-danger">
-                            <i class="fas fa-unlink"></i> Desvincular
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Tenant Management Card -->
-                <div class="card">
-                    <h3><i class="fas fa-users"></i> Tenant Management</h3>
-                    <div class="input-group">
-                        <input type="text" id="tenant-id" placeholder="Tenant ID" spellcheck="false">
-                    </div>
-                    <div class="input-group">
-                        <input type="password" id="tenant-token" placeholder="Tenant Token" spellcheck="false">
-                    </div>
-                    <div class="button-group">
-                        <button id="btn-add-tenant" class="btn-primary">
-                            <i class="fas fa-plus"></i> Agregar Tenant
-                        </button>
-                    </div>
-                    <div id="tenant-list-container" style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
-                        <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.5rem;">Active Tenants:</div>
-                        <div id="tenant-list" class="tenant-list">
-                            <!-- Tenants will be injected here -->
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h3><i class="fas fa-info-circle"></i> System Info</h3>
-                    <div class="info-row">
-                        <span>Motor Status:</span>
-                        <span id="info-motor" class="value">Checking...</span>
-                    </div>
-                    <div class="info-row">
-                        <span>Active Variant:</span>
-                        <span id="info-url" class="value">None</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Right Column: Real-time Logs -->
-            <section class="log-section">
-                <div class="log-header">
-                    <h3><i class="fas fa-stream"></i> System Live Stream</h3>
-                    <div class="log-controls">
-                        <button id="btn-clear-logs" class="btn-small">Clear</button>
-                    </div>
-                </div>
-                <div id="log-output" class="log-window">
-                    <div class="log-entry system">Welcome to Evolution Control Center. Awaiting motor connection...</div>
-                </div>
-            </section>
-        </main>
+        <div class="card">
+            <h3><i class="fas fa-heartbeat"></i> Salud del Sistema</h3>
+            <div id="global-metrics" style="font-size: 0.85rem; line-height: 1.6;">
+                Cargando métricas...
+            </div>
+            <div class="button-group">
+                <button id="btn-init-infra" class="btn btn-danger btn-small"><i class="fas fa-radiation"></i> Init Infra</button>
+                <button id="btn-clear-cache" class="btn btn-secondary btn-small"><i class="fas fa-broom"></i> Limpiar Caché</button>
+            </div>
+        </div>
     </div>
+
+    <!-- VISTA 2: TENANTS & BRANDING -->
+    <div id="view-tenants" class="view">
+        <div class="card">
+            <h3><i class="fas fa-user-plus"></i> Nuevo Tenant</h3>
+            <div class="input-group">
+                <input type="text" id="tenant-name" placeholder="Nombre Empresa">
+            </div>
+            <div class="input-group">
+                <input type="text" id="tenant-plan" placeholder="Plan (opcional)">
+            </div>
+            <button id="btn-add-tenant" class="btn btn-primary" style="width: 100%;">
+                <i class="fas fa-plus"></i> Crear Tenant
+            </button>
+        </div>
+
+        <div class="card">
+            <h3><i class="fas fa-users"></i> Clientes Activos</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 0.8rem; color: var(--text-dim);">Lista de Tenants</span>
+                <button id="btn-refresh-tenants" class="btn btn-secondary btn-small"><i class="fas fa-sync"></i></button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>ID</th><th>Nombre</th><th>Plan</th><th>Acción</th></tr>
+                    </thead>
+                    <tbody id="tenant-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 3: SaaS & PLANES -->
+    <div id="view-saas" class="view">
+        <div class="card">
+            <h3><i class="fas fa-tags"></i> Gestión de Planes</h3>
+            <div id="plans-list" style="margin-bottom: 20px;">
+                Cargando planes...
+            </div>
+            <div style="border-top: 1px solid var(--border); padding-top: 15px;">
+                <h4 style="font-size: 0.9rem; margin-bottom: 10px;">Definir Nuevo Plan</h4>
+                <div class="input-group"><input type="text" id="plan-id" placeholder="ID (ej: pro_monthly)"></div>
+                <div class="input-group"><input type="text" id="plan-name" placeholder="Nombre (ej: Plan Profesional)"></div>
+                <div class="input-group"><input type="number" id="plan-price" placeholder="Precio (USD)"></div>
+                <button id="btn-define-plan" class="btn btn-primary" style="width: 100%;">Crear Plan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 4: INFRAESTRUCTURA -->
+    <div id="view-infra" class="view">
+        <div class="card">
+            <h3><i class="fas fa-shield-alt"></i> Backups y Seguridad</h3>
+            <div class="input-group">
+                <input type="text" id="backup-tenant" placeholder="Tenant ID">
+            </div>
+            <div class="input-group">
+                <input type="text" id="backup-entity" placeholder="Entidad (ej: users)">
+            </div>
+            <div class="button-group">
+                <button id="btn-snapshot" class="btn btn-primary"><i class="fas fa-camera"></i> Snapshot</button>
+                <button id="btn-restore" class="btn btn-secondary"><i class="fas fa-undo"></i> Restore</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 5: REPORTES & BUGS -->
+    <div id="view-reports" class="view">
+        <div class="card">
+            <h3><i class="fas fa-bug"></i> Soporte Técnico</h3>
+            <button id="btn-refresh-reports" class="btn btn-secondary btn-small" style="margin-bottom: 15px;">
+                <i class="fas fa-sync"></i> Actualizar Reportes
+            </button>
+            <div id="reports-list">
+                <div class="log-entry">Cargando reportes...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DRAWER DE LOGS -->
+    <div id="log-drawer" class="log-drawer">
+        <div class="log-header">
+            <span style="font-weight: bold; font-size: 0.8rem;"><i class="fas fa-stream"></i> SYSTEM LIVE STREAM</span>
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-clear-logs" class="btn btn-secondary btn-small">Clear</button>
+                <button id="btn-close-logs" class="btn btn-danger btn-small">X</button>
+            </div>
+        </div>
+        <div id="log-output" class="log-window"></div>
+    </div>
+
+    <!-- NAVEGACIÓN INFERIOR -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="showView('config')">
+            <i class="fas fa-cog"></i><span>Config</span>
+        </button>
+        <button class="nav-item" onclick="showView('tenants')">
+            <i class="fas fa-users"></i><span>Tenants</span>
+        </button>
+        <button class="nav-item" onclick="showView('saas')">
+            <i class="fas fa-tags"></i><span>SaaS</span>
+        </button>
+        <button class="nav-item" onclick="showView('infra')">
+            <i class="fas fa-server"></i><span>Infra</span>
+        </button>
+        <button class="nav-item" onclick="showView('reports')">
+            <i class="fas fa-bug"></i><span>Bugs</span>
+        </button>
+        <button class="nav-item" onclick="toggleLogs()">
+            <i class="fas fa-terminal"></i><span>Logs</span>
+        </button>
+    </nav>
+
     <script src="/admin/static/js/monitor.js"></script>
 </body>
 </html>

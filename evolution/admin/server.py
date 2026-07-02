@@ -1,5 +1,5 @@
 import uvicorn
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import httpx
@@ -7,6 +7,8 @@ import logging
 import os
 import asyncio
 import json
+from pydantic import BaseModel
+from typing import Optional, Dict, Any, List
 
 # Configuración de Logging
 logging.basicConfig(
@@ -21,8 +23,6 @@ app = FastAPI(
     description="The 'Master' component of the Evolution Ecosystem. Orchestrates the Motor and monitors system health.",
 )
 
-# Configuración del Motor (Esclavo)
-MOTOR_URL = "http://localhost:8000"
 CONFIG_FILE = "admin_config.json"
 LOG_FILES = [
     "evolution_admin.log",
@@ -31,22 +31,201 @@ LOG_FILES = [
     "generic-db-admin/server.log",
 ]
 
+# --- PERSISTENCIA DE CONFIGURACIÓN GLOBAL ---
 
-def save_config(url: str, token: str):
-    with open(CONFIG_FILE, "w") as f:
-        json.dump({"url": url, "token": token}, f)
-
-
-def load_config():
+def load_config() -> Dict[str, Any]:
+    """Carga la configuración global de la plataforma."""
     if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            return json.load(f)
-    return None
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading config file: {e}")
+    return {}
 
+def save_config(config: Dict[str, Any]):
+    """Guarda la configuración global de la plataforma."""
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config, f, indent=4)
+    except Exception as e:
+        logger.error(f"Error saving config file: {e}")
+
+# --- CAPA DE EJECUCIÓN RESILIENTE ---
+
+async def execute_sentinel_command(cmd: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Ejecuta un comando en la API de DB-Sentinel con manejo de errores de estado.
+    Retorna un diccionario con la respuesta o un código de error específico.
+    """
+    config = load_config()
+    url = config.get("url")
+    token = config.get("token")
+
+    if not url or not token:
+        return {
+            "status": "error",
+            "error_code": "ERR_DB_NOT_CONFIGURED",
+            "message": "Base de datos no configurada. Por favor, configure la URL y el Token en el panel."
+        }
+
+    base_url = url.rstrip('/')
+    endpoint = f"{base_url}/exec?cmd={cmd}"
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            headers = {
+                "x-admin-token": token,
+                "Content-Type": "application/json"
+            }
+            payload = params or {}
+            response = await client.post(endpoint, json=payload, headers=headers)
+            return response.json()
+        except httpx.RequestError as e:
+            logger.error(f"Connection error to DB-Sentinel at {url}: {e}")
+            return {
+                "status": "error",
+                "error_code": "ERR_DB_CONNECTION_FAILED",
+                "message": f"Error de comunicación con el Motor: {str(e)}"
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error executing command {cmd}: {e}")
+            return {
+                "status": "error",
+                "error_code": "INTERNAL_ERROR",
+                "message": f"Error interno en el servidor Maestro: {str(e)}"
+            }
+
+# --- MODELOS ---
+
+class ConfigRequest(BaseModel):
+    url: str
+    token: str
+
+class TenantRequest(BaseModel):
+    name: str
+    plan: Optional[str] = "default"
+    blueprint_id: Optional[str] = None
+
+class PlanRequest(BaseModel):
+    plan_id: str
+    name: str
+    price: float
+    features: Dict[str, Any]
+
+class ThemeRequest(BaseModel):
+    primary_color: str
+    secondary_color: str
+    dark_mode: bool
+    logo_url: Optional[str] = None
+
+# --- ENDPOINTS DE CONFIGURACIÓN ---
+
+@app.get("/api/config")
+async def get_config():
+    config = load_config()
+    return {
+        "url": config.get("url"),
+        "token_set": "********" if config.get("token") else "Not Set",
+        "tenants_count": len(config.get("tenants", {}))
+    }
+
+@app.post("/api/config")
+async def set_config(request: ConfigRequest):
+    config = load_config()
+    config["url"] = request.url
+    config["token"] = request.token
+    save_config(config)
+    return {"status": "success", "message": "Configuración guardada correctamente."}
+
+@app.get("/api/test-connection")
+async def test_connection():
+    result = await execute_sentinel_command("system.db.verify_state")
+    if result.get("status") == "error" and result.get("error_code") in ["ERR_DB_NOT_CONFIGURED", "ERR_DB_CONNECTION_FAILED"]:
+        return result
+    return {"status": "success", "message": "Conexión establecida correctamente.", "details": result}
+
+# --- ENDPOINTS DE GESTIÓN DE TENANTS Y PLANES ---
+
+@app.post("/api/tenants/create")
+async def create_tenant(request: TenantRequest):
+    params = {"name": request.name, "plan": request.plan, "blueprint_id": request.blueprint_id}
+    result = await execute_sentinel_command("system.tenant.create", params)
+    if result.get("status") == "success":
+        config = load_config()
+        tenants = config.get("tenants", {})
+        tenant_id = result.get("tenant_id")
+        api_token = result.get("api_token")
+        if tenant_id:
+            tenants[tenant_id] = {"name": request.name, "token": api_token, "plan": request.plan}
+            config["tenants"] = tenants
+            save_config(config)
+    return result
+
+@app.get("/api/tenants/list")
+async def list_tenants():
+    return await execute_sentinel_command("system.tenant.list")
+
+@app.get("/api/plans/list")
+async def list_plans():
+    return await execute_sentinel_command("plan.list")
+
+@app.post("/api/plans/define")
+async def define_plan(request: PlanRequest):
+    return await execute_sentinel_command("plan.define", request.dict())
+
+@app.post("/api/plans/set")
+async def set_tenant_plan(tenant_id: str, plan_id: str):
+    return await execute_sentinel_command("plan.set", {"tenant_id": tenant_id, "plan_id": plan_id})
+
+# --- ENDPOINTS DE MÉTRICAS Y BACKUPS ---
+
+@app.get("/api/metrics/global")
+async def get_global_metrics():
+    return await execute_sentinel_command("system.metrics.global")
+
+@app.get("/api/metrics/tenant/{tenant_id}")
+async def get_tenant_storage(tenant_id: str):
+    return await execute_sentinel_command("system.tenant.storage", {"tenant_id": tenant_id})
+
+@app.post("/api/infra/snapshot")
+async def create_snapshot(tenant_id: str, entity: str):
+    # Nota: la API remota usa el token del tenant o root. 
+    # Aquí ejecutamos como Root.
+    return await execute_sentinel_command("infra.backup.snapshot", {"entity": entity, "tenant_id": tenant_id})
+
+@app.post("/api/infra/restore")
+async def restore_snapshot(snapshot_id: str):
+    return await execute_sentinel_command("infra.backup.restore", {"snapshot_id": snapshot_id})
+
+@app.post("/api/infra/cache-clear")
+async def clear_cache():
+    return await execute_sentinel_command("dev.cache.clear")
+
+# --- ENDPOINTS DE BRANDING (SDUI) ---
+
+@app.post("/api/sdui/theme")
+async def set_theme(tenant_id: str, request: ThemeRequest):
+    # Para SDUI, necesitamos pasar el tenant_id para que el motor sepa a quién aplicar el tema.
+    # En una implementación real, el motor debería manejar esto via token, 
+    # pero como el Admin es Root, enviamos el parámetro explícitamente si la API lo soporta.
+    params = request.dict()
+    params["tenant_id"] = tenant_id
+    return await execute_sentinel_command("sdui.set_theme", params)
+
+# --- ENDPOINTS DE AUDITORÍA Y SISTEMA ---
+
+@app.get("/api/reports")
+async def get_reports():
+    return await execute_sentinel_command("system.report.list")
+
+@app.post("/api/infra/init")
+async def init_infra():
+    return await execute_sentinel_command("system.init_infra", {})
+
+# --- UTILIDADES Y ESTÁTICOS ---
 
 class LogStreamer:
-    """Utilidad para leer archivos de logs en tiempo real (estilo tail -f)."""
-
     @staticmethod
     async def tail_logs():
         files = []
@@ -55,206 +234,39 @@ class LogStreamer:
                 f = open(path, "r")
                 f.seek(0, os.SEEK_END)
                 files.append(f)
-
         try:
             while True:
                 for f in files:
                     line = f.readline()
                     if line:
-                        stripped_line = line.strip()
-                        if (
-                            "/api/status" in stripped_line
-                            or "/control/status" in stripped_line
-                        ) and " 200 OK" in stripped_line:
-                            continue
-                        yield stripped_line
+                        yield line.strip()
                 await asyncio.sleep(0.1)
         finally:
             for f in files:
                 f.close()
 
-
-@app.get("/api/status")
-async def get_motor_status():
-    """Proxy para obtener el estado del motor."""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(f"{MOTOR_URL}/control/status")
-            return response.json()
-        except httpx.RequestError:
-            logger.error(
-                "Could not reach the Evolution Motor. Is it running on port 8001?"
-            )
-            raise HTTPException(
-                status_code=503, detail="Evolution Motor is unreachable"
-            )
-
-
-@app.post("/api/link")
-async def link_motor_db(data: dict):
-    """Proxy para vincular el motor a una base de datos mediante la variante."""
-    url = data.get("url")
-    token = data.get("token")
-    if not url or not token:
-        raise HTTPException(status_code=400, detail="URL and Token are required")
-
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                f"{MOTOR_URL}/control/connect", json={"url": url, "token": token}
-            )
-            if response.status_code != 200:
-                return response.json()
-
-            # Persistir la configuración en el servidor Maestro
-            save_config(url, token)
-
-            return response.json()
-        except httpx.RequestError:
-            logger.error("Could not reach the Evolution Motor to link the database.")
-            raise HTTPException(
-                status_code=503, detail="Evolution Motor is unreachable"
-            )
-
-
-@app.post("/api/disconnect")
-async def disconnect_motor_db():
-    """Proxy para desvincular la base de datos del motor."""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(f"{MOTOR_URL}/control/disconnect")
-            # Limpiar configuración persistida
-            if os.path.exists(CONFIG_FILE):
-                os.remove(CONFIG_FILE)
-            return response.json()
-        except httpx.RequestError:
-            raise HTTPException(
-                status_code=503, detail="Evolution Motor is unreachable"
-            )
-
-
-@app.post("/api/log/frontend")
-async def receive_frontend_log(data: dict):
-    """Endpoint para recibir logs de errores desde el frontend del cliente."""
-    message = data.get("message", "No message")
-    level = data.get("level", "INFO")
-    tenant = data.get("tenant", "Unknown")
-
-    log_entry = f"[FRONTEND][{tenant}] {level}: {message}"
-    logger.info(log_entry)
-
-    # Intentar persistir el log en la DB a través del Motor
-    async with httpx.AsyncClient() as client:
-        try:
-            await client.post(
-                f"{MOTOR_URL}/control/log_to_db",
-                json={"level": level, "message": message, "tenant": tenant},
-            )
-        except Exception:
-            pass  # No bloquear el flujo si el motor no puede guardar el log
-
-    return {"status": "logged"}
-
-
 @app.websocket("/ws/logs")
 async def websocket_logs(websocket: WebSocket):
-    """WebSocket para transmitir logs en tiempo real al panel de administración."""
     await websocket.accept()
-    logger.info("Admin client connected to log stream.")
     try:
         async for line in LogStreamer.tail_logs():
             await websocket.send_text(line)
     except WebSocketDisconnect:
-        logger.info("Admin client disconnected from log stream.")
+        pass
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
 
-
-# Get the base directory of the server script (absolute path)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-logger.info(f"--- SYSTEM: BASE_DIR resolved to {BASE_DIR}")
-logger.info(f"--- SYSTEM: STATIC_DIR resolved to {STATIC_DIR}")
-
-# Servir archivos estáticos y el frontend
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/admin/static", StaticFiles(directory=STATIC_DIR), name="admin_static")
 
-@app.get("/api/debug/paths")
-async def debug_paths():
-    """Endpoint de diagnóstico para verificar rutas y existencia de archivos."""
-    return {
-        "base_dir": BASE_DIR,
-        "static_dir": STATIC_DIR,
-        "static_exists": os.path.exists(STATIC_DIR),
-        "index_exists": os.path.exists(os.path.join(BASE_DIR, "index.html")),
-        "css_exists": os.path.exists(os.path.join(STATIC_DIR, "css", "console.css")),
-        "js_exists": os.path.exists(os.path.join(STATIC_DIR, "js", "monitor.js")),
-        "current_working_dir": os.getcwd(),
-    }
-
 @app.get("/")
 async def serve_index():
-    index_path = os.path.join(BASE_DIR, "index.html")
-    return FileResponse(index_path)
-
-from pydantic import BaseModel
-
-class TenantRequest(BaseModel):
-    tenant_id: str
-    token: str
-
-@app.post("/api/tenants/add")
-async def add_tenant(request: TenantRequest):
-    """Registrar un token de tenant específico en el motor y persistirlo."""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                f"{MOTOR_URL}/control/tenants/add", 
-                json={"tenant_id": request.tenant_id, "token": request.token}
-            )
-            if response.status_code != 200:
-                return response.json()
-
-            # Persistir en el archivo de configuración del Maestro
-            config = load_config() or {}
-            tenants = config.get("tenants", {})
-            tenants[request.tenant_id] = request.token
-            
-            url = config.get("url")
-            token = config.get("token")
-            save_config(url, token, tenants)
-
-            return response.json()
-        except httpx.RequestError:
-            raise HTTPException(status_code=503, detail="Evolution Motor is unreachable")
-
-@app.delete("/api/tenants/{tenant_id}")
-async def remove_tenant(tenant_id: str):
-    """Eliminar un tenant del registro del motor y del archivo de configuración."""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.delete(f"{MOTOR_URL}/control/tenants/{tenant_id}")
-            if response.status_code != 200:
-                return response.json()
-
-            # Eliminar del archivo de configuración
-            config = load_config() or {}
-            tenants = config.get("tenants", {})
-            if tenant_id in tenants:
-                del tenants[tenant_id]
-                url = config.get("url")
-                token = config.get("token")
-                save_config(url, token, tenants)
-
-            return response.json()
-        except httpx.RequestError:
-            raise HTTPException(status_code=503, detail="Evolution Motor is unreachable")
-
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
 
 if __name__ == "__main__":
-    # El Maestro corre en el puerto definido por ADMIN_PORT o 8001 por defecto
     port = int(os.getenv("ADMIN_PORT", 8001))
-    logger.info(f"Starting Evolution Control Center on port {port}...")
+    logger.info(f"Starting Evolution Control Center (Master) on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)

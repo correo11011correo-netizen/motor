@@ -11,10 +11,10 @@ El resultado debe ser una arquitectura donde los módulos de negocio (`sales`, `
 El motor actuará como un mediador entre el `CommandDispatcher` y la Base de Datos.
 
 **Flujo Actual:**
-`Dispatcher` $ightarrow$ `SalesCommandHandler` $ightarrow$ `session.execute(text("INSERT INTO..."))`
+`Dispatcher` → `SalesCommandHandler` → `session.execute(text("INSERT INTO..."))`
 
 **Flujo Evolucionado:**
-`Dispatcher` $ightarrow$ `SalesCommandHandler` $ightarrow$ `DataMotor.execute("data.insert", { ... })` $ightarrow$ `SQL`
+`Dispatcher` → `SalesCommandHandler` → `DataMotor.execute("data.insert", { ... })` → `SQL`
 
 ---
 
@@ -46,6 +46,16 @@ El motor actuará como un mediador entre el `CommandDispatcher` y la Base de Dat
 ### Fase 5: Validación y Pruebas
 - [ ] Ejecutar tests de regresión para asegurar que las ventas y el stock siguen funcionando.
 - [ ] Validar que el `audit_log` sigue registrando las operaciones correctamente.
+
+---
+
+## 🛡️ Centro de Control y Auditoría (Admin Panel)
+Para garantizar la calidad del servicio y el soporte técnico, se implementará un sistema de monitoreo de errores y bugs vinculado a la identidad del Tenant.
+
+**Objetivos de Auditoría:**
+- [ ] **Trazabilidad de Errores:** Implementar el registro de reportes técnicos vinculados obligatoriamente a un `tenant_id`.
+- [ ] **Organización por Tenant:** El Panel Admin debe agrupar los reportes por usuario/empresa para identificar patrones de fallos específicos.
+- [ ] **Dashboard de Soporte:** Vista simplificada para el administrador donde pueda ver el estado de los problemas reportados por cada Tenant.
 
 ---
 
