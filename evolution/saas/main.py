@@ -92,6 +92,41 @@ async def proxy_admin_api_post(path: str, request: Request):
         return response.json()
     return Response(content=response.content, status_code=response.status_code)
 
+@app.websocket("/admin/ws/logs")
+async def proxy_admin_ws(websocket: WebSocket):
+    """Proxy para el flujo de logs en tiempo real del Panel Admin."""
+    logger.info("Incoming WebSocket request to /admin/ws/logs")
+    try:
+        await websocket.accept()
+        logger.info("Client WebSocket accepted. Attempting to connect to Admin Server...")
+        
+        import websockets # Import local para evitar conflictos de carga
+        
+        # Usamos 127.0.0.1 para evitar problemas de resolución de 'localhost' en Docker/Railway
+        target_url = "ws://127.0.0.1:8001/ws/logs"
+        
+        async with websockets.connect(target_url) as target_ws:
+            logger.info(f"Successfully connected to Admin Server at {target_url}")
+            while True:
+                try:
+                    message = await target_ws.recv()
+                    await websocket.send_text(message)
+                except websockets.ConnectionClosed:
+                    logger.info("Admin Server closed the connection.")
+                    break
+                except Exception as e:
+                    logger.error(f"Error during message transfer: {e}")
+                    break
+                    
+    except Exception as e:
+        logger.error(f"Critical WebSocket Proxy Error: {type(e).__name__}: {e}")
+    finally:
+        logger.info("Closing WebSocket proxy connection.")
+        try:
+            await websocket.close()
+        except:
+            pass
+
 # --------------------------------------------------
 @app.post("/auth/register")
 async def register(data: dict):
