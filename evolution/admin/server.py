@@ -179,6 +179,7 @@ logger.info(f"--- SYSTEM: STATIC_DIR resolved to {STATIC_DIR}")
 
 # Servir archivos estáticos y el frontend
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/admin/static", StaticFiles(directory=STATIC_DIR), name="admin_static")
 
 @app.get("/api/debug/paths")
 async def debug_paths():
