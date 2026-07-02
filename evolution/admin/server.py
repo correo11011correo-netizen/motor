@@ -174,7 +174,7 @@ async def websocket_logs(websocket: WebSocket):
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Servir archivos estáticos y el frontend
-app.mount("/static", StaticFiles(directory=BASE_DIR), name="static")
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 
 @app.get("/")
