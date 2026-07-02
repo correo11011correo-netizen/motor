@@ -79,9 +79,7 @@ function addLog(message, type = 'info') {
 
 async function apiCall(endpoint, method = 'GET', body = null) {
     try {
-        // Asegurar que el endpoint tenga el prefijo /admin si no lo tiene
         const finalEndpoint = endpoint.startsWith('/admin') ? endpoint : `/admin${endpoint}`;
-        
         const options = {
             method,
             headers: { 'Content-Type': 'application/json' }
@@ -89,20 +87,35 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         if (body) options.body = JSON.stringify(body);
 
         const response = await fetch(finalEndpoint, options);
+        
+        // 1. Validar estado HTTP
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || `Error HTTP ${response.status}: ${response.statusText}`);
+        }
+
         const data = await response.json();
 
-        if (data.error_code === 'ERR_DB_NOT_CONFIGURED') {
-            updateStatus('DISCONNECTED', 'DESCONECTADO (No Configurado)');
-            throw new Error(data.message);
+        // 2. Validar errores lógicos del negocio (Sentinel Pattern)
+        if (data.status === 'error' || data.error_code) {
+            const msg = data.message || data.detail || `Error ${data.error_code || 'desconocido'}`;
+            
+            if (data.error_code === 'ERR_DB_NOT_CONFIGURED') {
+                updateStatus('DISCONNECTED', 'DESCONECTADO (No Configurado)');
+            } else if (data.error_code === 'ERR_DB_CONNECTION_FAILED') {
+                updateStatus('ERROR', 'ERROR DE CONEXIÓN');
+            }
+            throw new Error(msg);
         }
-        if (data.error_code === 'ERR_DB_CONNECTION_FAILED') {
-            updateStatus('ERROR', 'ERROR DE CONEXIÓN');
-            throw new Error(data.message);
+
+        // 3. Validar errores de FastAPI (campo 'detail' en respuestas 200)
+        if (data.detail && data.status !== 'success') {
+            throw new Error(data.detail);
         }
 
         return data;
     } catch (err) {
-        addLog(err.message, 'error');
+        // No logueamos aquí para no duplicar mensajes en las funciones que llaman a apiCall
         throw err;
     }
 }
@@ -135,7 +148,7 @@ async function saveConfig() {
         addLog('Configuración guardada correctamente', 'success');
         await testConnection();
     } catch (err) {
-        addLog('Error al guardar configuración', 'error');
+        addLog('Error al guardar: ' + err.message, 'error');
     }
 }
 
@@ -149,7 +162,7 @@ async function testConnection() {
             await refreshMetrics();
         }
     } catch (err) {
-        // Error manejado por apiCall
+        addLog('Test fallido: ' + err.message, 'error');
     }
 }
 
@@ -166,7 +179,7 @@ async function refreshMetrics() {
             `;
         }
     } catch (err) {
-        elements.globalMetrics.textContent = 'Error al cargar métricas';
+        elements.globalMetrics.textContent = 'Error al cargar métricas: ' + err.message;
     }
 }
 
@@ -174,9 +187,9 @@ async function initInfra() {
     if (!confirm('¿Estás seguro? Esto inicializará las tablas maestras del sistema.')) return;
     try {
         const result = await apiCall('/api/infra/init', 'POST');
-        addLog('Infraestructura inicializada: ' + JSON.stringify(result), 'success');
+        addLog('Infraestructura inicializada: ' + (result.message || 'OK'), 'success');
     } catch (err) {
-        addLog('Error al inicializar infraestructura', 'error');
+        addLog('Error Init Infra: ' + err.message, 'error');
     }
 }
 
@@ -185,7 +198,7 @@ async function clearCache() {
         const result = await apiCall('/api/infra/cache-clear', 'POST');
         addLog('Caché de Blueprints limpiada correctamente', 'success');
     } catch (err) {
-        addLog('Error al limpiar caché', 'error');
+        addLog('Error limpiar caché: ' + err.message, 'error');
     }
 }
 
