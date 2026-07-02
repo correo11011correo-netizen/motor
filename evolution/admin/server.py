@@ -170,13 +170,16 @@ async def websocket_logs(websocket: WebSocket):
         logger.error(f"WebSocket error: {e}")
 
 
+# Get the base directory of the server script
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Servir archivos estáticos y el frontend
-app.mount("/static", StaticFiles(directory="admin"), name="static")
+app.mount("/static", StaticFiles(directory=BASE_DIR), name="static")
 
 
 @app.get("/")
 async def serve_index():
-    return FileResponse("admin/index.html")
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
 
 
 if __name__ == "__main__":
