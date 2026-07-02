@@ -93,7 +93,7 @@ async def proxy_admin_api_post(path: str, request: Request):
 @app.post("/auth/register")
 async def register(data: dict):
     """Registro de nuevo Tenant y Usuario Administrador."""
-    res = auth_service.register(
+    res = await auth_service.register(
         email=data.get("email"), 
         password=data.get("password"), 
         business_name=data.get("business_name"),
@@ -106,7 +106,7 @@ async def register(data: dict):
 @app.post("/auth/login")
 async def login(data: dict):
     """Autenticación de usuario y generación de token JWT."""
-    res = auth_service.authenticate(data.get("email"), data.get("password"))
+    res = await auth_service.authenticate(data.get("email"), data.get("password"))
     if not res:
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     return res

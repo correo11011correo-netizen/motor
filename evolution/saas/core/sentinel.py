@@ -1,5 +1,7 @@
 import logging
 import httpx
+import json
+import os
 from typing import Any, Dict, Optional
 from datetime import datetime
 
@@ -16,6 +18,22 @@ class SentinelClient:
         self._url = None
         self._token = None
         self._is_connected = False
+        self._load_config()
+
+    def _load_config(self):
+        """Carga la configuración desde el archivo compartido por el Panel Admin."""
+        config_path = "admin/admin_config.json"
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+                    url = config.get("url")
+                    token = config.get("token")
+                    if url and token:
+                        logger.info(f"Auto-linking to Sentinel using persisted config: {url}")
+                        self.link(url, token)
+            except Exception as e:
+                logger.error(f"Error loading config from {config_path}: {e}")
 
     def link(self, url: str, token: str) -> bool:
         """
