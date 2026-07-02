@@ -49,12 +49,14 @@ class SentinelClient:
 
         try:
             with httpx.Client() as client:
+                # Verificado mediante curl: El motor responde en /api/status
                 response = client.get(
                     f"{base_url}/api/status",
                     headers={"x-admin-token": token},
                     timeout=5.0,
                 )
                 if response.status_code != 200:
+                    logger.error(f"Sentinel link failed: HTTP {response.status_code}")
                     return False
 
                 self._url = base_url
