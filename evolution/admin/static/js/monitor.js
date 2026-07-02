@@ -17,7 +17,53 @@ const infoUrl = document.getElementById("info-url");
 const logOutput = document.getElementById("log-output");
 const btnClearLogs = document.getElementById("btn-clear-logs");
 
-// ... (helper functions same as before) ...
+// Helper Utilities
+const storage = {
+    save: (key, val) => localStorage.setItem(key, val),
+    get: (key) => localStorage.getItem(key)
+};
+
+function addLog(message, type = 'system') {
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.innerText = message;
+    logOutput.appendChild(entry);
+    logOutput.scrollTop = logOutput.scrollHeight;
+}
+
+async function syncStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/status`);
+        const data = await response.json();
+        if (data.status === 'connected') {
+            led.className = 'led green';
+            statusText.innerText = 'CONNECTED';
+            infoMotor.innerText = 'Active';
+            infoUrl.innerText = data.url || 'Unknown';
+        } else {
+            led.className = 'led red';
+            statusText.innerText = 'DISCONNECTED';
+            infoMotor.innerText = 'Inactive';
+            infoUrl.innerText = 'None';
+        }
+    } catch (e) {
+        led.className = 'led red';
+        statusText.innerText = 'ERROR';
+    }
+}
+
+function connectLogStream() {
+    const ws = new WebSocket(WS_BASE);
+    ws.onmessage = (event) => {
+        addLog(event.data, 'system');
+    };
+    ws.onclose = () => {
+        setTimeout(connectLogStream, 3000);
+    };
+    ws.onerror = (err) => {
+        console.error("WebSocket error:", err);
+    };
+}
 
 // Link database (Sentinel Admin)
 async function linkDatabase() {
