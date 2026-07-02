@@ -199,6 +199,59 @@ async def serve_index():
     index_path = os.path.join(BASE_DIR, "index.html")
     return FileResponse(index_path)
 
+from pydantic import BaseModel
+
+class TenantRequest(BaseModel):
+    tenant_id: str
+    token: str
+
+@app.post("/api/tenants/add")
+async def add_tenant(request: TenantRequest):
+    """Registrar un token de tenant específico en el motor y persistirlo."""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{MOTOR_URL}/control/tenants/add", 
+                json={"tenant_id": request.tenant_id, "token": request.token}
+            )
+            if response.status_code != 200:
+                return response.json()
+
+            # Persistir en el archivo de configuración del Maestro
+            config = load_config() or {}
+            tenants = config.get("tenants", {})
+            tenants[request.tenant_id] = request.token
+            
+            url = config.get("url")
+            token = config.get("token")
+            save_config(url, token, tenants)
+
+            return response.json()
+        except httpx.RequestError:
+            raise HTTPException(status_code=503, detail="Evolution Motor is unreachable")
+
+@app.delete("/api/tenants/{tenant_id}")
+async def remove_tenant(tenant_id: str):
+    """Eliminar un tenant del registro del motor y del archivo de configuración."""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.delete(f"{MOTOR_URL}/control/tenants/{tenant_id}")
+            if response.status_code != 200:
+                return response.json()
+
+            # Eliminar del archivo de configuración
+            config = load_config() or {}
+            tenants = config.get("tenants", {})
+            if tenant_id in tenants:
+                del tenants[tenant_id]
+                url = config.get("url")
+                token = config.get("token")
+                save_config(url, token, tenants)
+
+            return response.json()
+        except httpx.RequestError:
+            raise HTTPException(status_code=503, detail="Evolution Motor is unreachable")
+
 
 if __name__ == "__main__":
     # El Maestro corre en el puerto definido por ADMIN_PORT o 8001 por defecto
