@@ -23,7 +23,7 @@ app = FastAPI(
     description="The 'Master' component of the Evolution Ecosystem. Orchestrates the Motor and monitors system health.",
 )
 
-CONFIG_FILE = "admin_config.json"
+CONFIG_FILE = "admin/admin_config.json"
 LOG_FILES = [
     "evolution_admin.log",
     "evolution_saas.log",
