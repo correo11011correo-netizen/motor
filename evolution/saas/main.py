@@ -6,7 +6,6 @@ import time
 import os
 import uvicorn
 import httpx
-import websockets
 
 # Configuración de Logging
 
