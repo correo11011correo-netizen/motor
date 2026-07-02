@@ -121,7 +121,7 @@ class ThemeRequest(BaseModel):
 
 # --- ENDPOINTS DE CONFIGURACIÓN ---
 
-@app.get("/api/config")
+@app.get("/admin/api/config")
 async def get_config():
     config = load_config()
     return {
@@ -130,7 +130,7 @@ async def get_config():
         "tenants_count": len(config.get("tenants", {}))
     }
 
-@app.post("/api/config")
+@app.post("/admin/api/config")
 async def set_config(request: ConfigRequest):
     config = load_config()
     config["url"] = request.url
@@ -138,7 +138,7 @@ async def set_config(request: ConfigRequest):
     save_config(config)
     return {"status": "success", "message": "Configuración guardada correctamente."}
 
-@app.get("/api/test-connection")
+@app.get("/admin/api/test-connection")
 async def test_connection():
     result = await execute_sentinel_command("system.db.verify_state")
     if result.get("status") == "error" and result.get("error_code") in ["ERR_DB_NOT_CONFIGURED", "ERR_DB_CONNECTION_FAILED"]:
@@ -147,7 +147,7 @@ async def test_connection():
 
 # --- ENDPOINTS DE GESTIÓN DE TENANTS Y PLANES ---
 
-@app.post("/api/tenants/create")
+@app.post("/admin/api/tenants/create")
 async def create_tenant(request: TenantRequest):
     params = {"name": request.name, "plan": request.plan, "blueprint_id": request.blueprint_id}
     result = await execute_sentinel_command("system.tenant.create", params)
@@ -162,49 +162,49 @@ async def create_tenant(request: TenantRequest):
             save_config(config)
     return result
 
-@app.get("/api/tenants/list")
+@app.get("/admin/api/tenants/list")
 async def list_tenants():
     return await execute_sentinel_command("system.tenant.list")
 
-@app.get("/api/plans/list")
+@app.get("/admin/api/plans/list")
 async def list_plans():
     return await execute_sentinel_command("plan.list")
 
-@app.post("/api/plans/define")
+@app.post("/admin/api/plans/define")
 async def define_plan(request: PlanRequest):
     return await execute_sentinel_command("plan.define", request.dict())
 
-@app.post("/api/plans/set")
+@app.post("/admin/api/plans/set")
 async def set_tenant_plan(tenant_id: str, plan_id: str):
     return await execute_sentinel_command("plan.set", {"tenant_id": tenant_id, "plan_id": plan_id})
 
 # --- ENDPOINTS DE MÉTRICAS Y BACKUPS ---
 
-@app.get("/api/metrics/global")
+@app.get("/admin/api/metrics/global")
 async def get_global_metrics():
     return await execute_sentinel_command("system.metrics.global")
 
-@app.get("/api/metrics/tenant/{tenant_id}")
+@app.get("/admin/api/metrics/tenant/{tenant_id}")
 async def get_tenant_storage(tenant_id: str):
     return await execute_sentinel_command("system.tenant.storage", {"tenant_id": tenant_id})
 
-@app.post("/api/infra/snapshot")
+@app.post("/admin/api/infra/snapshot")
 async def create_snapshot(tenant_id: str, entity: str):
     # Nota: la API remota usa el token del tenant o root. 
     # Aquí ejecutamos como Root.
     return await execute_sentinel_command("infra.backup.snapshot", {"entity": entity, "tenant_id": tenant_id})
 
-@app.post("/api/infra/restore")
+@app.post("/admin/api/infra/restore")
 async def restore_snapshot(snapshot_id: str):
     return await execute_sentinel_command("infra.backup.restore", {"snapshot_id": snapshot_id})
 
-@app.post("/api/infra/cache-clear")
+@app.post("/admin/api/infra/cache-clear")
 async def clear_cache():
     return await execute_sentinel_command("dev.cache.clear")
 
 # --- ENDPOINTS DE BRANDING (SDUI) ---
 
-@app.post("/api/sdui/theme")
+@app.post("/admin/api/sdui/theme")
 async def set_theme(tenant_id: str, request: ThemeRequest):
     # Para SDUI, necesitamos pasar el tenant_id para que el motor sepa a quién aplicar el tema.
     # En una implementación real, el motor debería manejar esto via token, 
@@ -215,11 +215,11 @@ async def set_theme(tenant_id: str, request: ThemeRequest):
 
 # --- ENDPOINTS DE AUDITORÍA Y SISTEMA ---
 
-@app.get("/api/reports")
+@app.get("/admin/api/reports")
 async def get_reports():
     return await execute_sentinel_command("system.report.list")
 
-@app.post("/api/infra/init")
+@app.post("/admin/api/infra/init")
 async def init_infra():
     return await execute_sentinel_command("system.init_infra", {})
 

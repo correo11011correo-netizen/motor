@@ -79,13 +79,16 @@ function addLog(message, type = 'info') {
 
 async function apiCall(endpoint, method = 'GET', body = null) {
     try {
+        // Asegurar que el endpoint tenga el prefijo /admin si no lo tiene
+        const finalEndpoint = endpoint.startsWith('/admin') ? endpoint : `/admin${endpoint}`;
+        
         const options = {
             method,
             headers: { 'Content-Type': 'application/json' }
         };
         if (body) options.body = JSON.stringify(body);
 
-        const response = await fetch(endpoint, options);
+        const response = await fetch(finalEndpoint, options);
         const data = await response.json();
 
         if (data.error_code === 'ERR_DB_NOT_CONFIGURED') {
@@ -382,8 +385,10 @@ async function init() {
         updateStatus('DISCONNECTED', 'DESCONECTADO (No Configurado)');
     }
 
-    // 2. Suscribirse a logs en tiempo real
-    const ws = new WebSocket(`ws://${window.location.host}/ws/logs`);
+    // 2. Suscribirse a logs en tiempo real (Soporte para HTTPS/WSS)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/logs`;
+    const ws = new WebSocket(wsUrl);
     ws.onmessage = (event) => {
         addLog(event.data, 'system');
     };
