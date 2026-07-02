@@ -245,7 +245,7 @@ class LogStreamer:
             for f in files:
                 f.close()
 
-@app.websocket("/ws/logs")
+@app.websocket("/admin/ws/logs")
 async def websocket_logs(websocket: WebSocket):
     await websocket.accept()
     try:

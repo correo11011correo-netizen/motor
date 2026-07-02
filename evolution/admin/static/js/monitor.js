@@ -387,7 +387,7 @@ async function init() {
 
     // 2. Suscribirse a logs en tiempo real (Soporte para HTTPS/WSS)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/logs`;
+    const wsUrl = `${protocol}//${window.location.host}/admin/ws/logs`;
     const ws = new WebSocket(wsUrl);
     ws.onmessage = (event) => {
         addLog(event.data, 'system');
