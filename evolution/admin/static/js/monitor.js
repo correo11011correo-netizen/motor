@@ -380,53 +380,178 @@ async function refreshReports() {
     }
 }
 
-// --- INICIALIZACIÓN ---
+// --- ELEMENTOS DE LA UI TÉCNICA ---
+const techElements = {
+    tenantSelect: document.getElementById('tech-tenant-select'),
+    btnLoadTech: document.getElementById('btn-load-tech'),
+    detailsContainer: document.getElementById('tech-details-container'),
+    blueprintEditor: document.getElementById('tech-blueprint-editor'),
+    btnSaveBlueprint: document.getElementById('btn-save-blueprint'),
+    entitiesList: document.getElementById('tech-entities-list'),
+    dataExplorer: document.getElementById('tech-data-explorer'),
+    currentEntityLabel: document.getElementById('tech-current-entity'),
+    dataHead: document.getElementById('tech-data-head'),
+    dataBody: document.getElementById('tech-data-body'),
+    btnAddRecord: document.getElementById('btn-add-json-record'),
+};
 
-async function init() {
-    // 1. Cargar configuración actual
-    try {
-        const config = await apiCall('/api/config');
-        elements.dbUrl.value = config.url || '';
-        if (config.token_set === '********') {
-            elements.dbToken.value = ''; 
-            updateStatus('OPERATIONAL', 'SISTEMA OPERATIVO');
-            await refreshMetrics();
-        } else {
-            updateStatus('DISCONNECTED', 'DESCONECTADO (No Configurado)');
-        }
-    } catch (err) {
-        updateStatus('DISCONNECTED', 'DESCONECTADO (No Configurado)');
+// --- ACCIONES DE GESTIÓN TÉCNICA ---
+
+async function loadTechnicalDetails() {
+    const tenantId = techElements.tenantSelect.value;
+    if (!tenantId) {
+        addLog('Seleccione un tenant primero', 'error');
+        return;
     }
 
-    // 2. Suscribirse a logs en tiempo real (Soporte para HTTPS/WSS)
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/admin/ws/logs`;
-    const ws = new WebSocket(wsUrl);
-    ws.onmessage = (event) => {
-        addLog(event.data, 'system');
-    };
+    try {
+        updateStatus('CONNECTING', 'Cargando Infraestructura...');
+        
+        // 1. Cargar Detalles Básicos y Blueprint
+        const details = await apiCall(`/api/tenants/${tenantId}/details`);
+        
+        // Intentamos obtener el blueprint actual (esto requiere que el servidor Admin lo implemente)
+        // Por ahora, cargamos el blueprint si está en los detalles o dejamos el editor vacío.
+        techElements.blueprintEditor.value = JSON.stringify(details.blueprint || {}, null, 2);
+        
+        // 2. Cargar Entidades
+        const entities = await apiCall(`/api/tenants/${tenantId}/entities`);
+        techElements.entitiesList.innerHTML = '';
+        
+        if (Array.isArray(entities)) {
+            entities.forEach(ent => {
+                const chip = document.createElement('button');
+                chip.className = 'btn btn-secondary btn-small';
+                chip.textContent = ent;
+                chip.onclick = () => exploreEntity(ent);
+                techElements.entitiesList.appendChild(chip);
+            });
+        } else if (entities.result && Array.isArray(entities.result)) {
+            entities.result.forEach(ent => {
+                const chip = document.createElement('button');
+                chip.className = 'btn btn-secondary btn-small';
+                chip.textContent = ent;
+                chip.onclick = () => exploreEntity(ent);
+                techElements.entitiesList.appendChild(chip);
+            });
+        }
 
-    // 3. Setup de Event Listeners
-    elements.btnLink.onclick = saveConfig;
-    elements.btnTest.onclick = testConnection;
-    elements.btnInitInfra.onclick = initInfra;
-    elements.btnClearCache.onclick = clearCache;
-    
-    elements.btnAddTenant.onclick = createTenant;
-    elements.btnRefreshTenants.onclick = refreshTenants;
-    
-    elements.btnDefinePlan.onclick = definePlan;
-    
-    elements.btnSnapshot.onclick = createSnapshot;
-    elements.btnRestore.onclick = restoreSnapshot;
-    
-    elements.btnRefreshReports.onclick = refreshReports;
-    elements.btnClearLogs.onclick = () => elements.logOutput.innerHTML = '';
-    
-    // Exponer funciones globales para el HTML
-    window.showView = showView;
-    window.toggleLogs = toggleLogs;
-    window.setPlan = setPlan;
+        techElements.detailsContainer.style.display = 'block';
+        updateStatus('OPERATIONAL', 'SISTEMA OPERATIVO');
+        addLog(`Cargada infraestructura de ${details.name || tenantId}`, 'success');
+    } catch (err) {
+        addLog('Error cargando detalles técnicos: ' + err.message, 'error');
+    }
 }
 
-init();
+async function exploreEntity(entityName) {
+    const tenantId = techElements.tenantSelect.value;
+    try {
+        techElements.dataExplorer.style.display = 'block';
+        techElements.currentEntityLabel.textContent = `Entidad: ${entityName}`;
+        
+        const data = await apiCall(`/api/tenants/${tenantId}/data/${entityName}`);
+        const records = data.result || (Array.isArray(data) ? data : []);
+        
+        techElements.dataHead.innerHTML = '';
+        techElements.dataBody.innerHTML = '';
+        
+        if (records.length === 0) {
+            techElements.dataBody.innerHTML = '<tr><td colspan="100%">No hay registros en esta entidad.</td></tr>';
+            return;
+        }
+
+        // Generar cabeceras basadas en las llaves del primer registro
+        const keys = Object.keys(records[0]);
+        keys.forEach(k => {
+            const th = document.createElement('th');
+            th.textContent = k;
+            techElements.dataHead.appendChild(th);
+        });
+
+        // Generar filas
+        records.forEach(rec => {
+            const tr = document.createElement('tr');
+            keys.forEach(k => {
+                const td = document.createElement('td');
+                td.textContent = typeof rec[k] === 'object' ? JSON.stringify(rec[k]) : rec[k];
+                tr.appendChild(td);
+            });
+            tr.appendChild(document.createElement('td')); // Espacio para acciones
+            techElements.dataBody.appendChild(tr);
+        });
+
+    } catch (err) {
+        addLog('Error explorando entidad: ' + err.message, 'error');
+    }
+}
+
+async function saveBlueprint() {
+    const tenantId = techElements.tenantSelect.value;
+    const mapDef = techElements.blueprintEditor.value;
+
+    try {
+        const jsonDef = JSON.parse(mapDef);
+        await apiCall(`/api/tenants/${tenantId}/blueprint`, 'POST', {
+            map_definition: jsonDef,
+            developer_name: 'Admin_Root'
+        });
+        addLog('Blueprint actualizado correctamente', 'success');
+        await loadTechnicalDetails();
+    } catch (err) {
+        addLog('Error al guardar Blueprint: ' + err.message, 'error');
+    }
+}
+
+async function addJsonRecord() {
+    const tenantId = techElements.tenantSelect.value;
+    const entity = techElements.currentEntityLabel.textContent.replace('Entidad: ', '');
+    const dataStr = prompt('Ingrese el registro JSON (ej: {"name": "Test", "price": 10}):');
+    
+    if (!dataStr) return;
+    
+    try {
+        const jsonData = JSON.parse(dataStr);
+        await apiCall(`/api/tenants/${tenant_id}/data/upsert`, 'POST', {
+            entity: entity,
+            data: jsonData
+        });
+        addLog('Registro insertado correctamente', 'success');
+        await exploreEntity(entity);
+    } catch (err) {
+        addLog('Error insertando registro: ' + err.message, 'error');
+    }
+}
+
+async function populateTenantSelect() {
+    try {
+        const tenants = await apiCall('/api/tenants/list');
+        const list = Array.isArray(tenants) ? tenants : (tenants.tenants || tenants.result || []);
+        
+        techElements.tenantSelect.innerHTML = '<option value="">Seleccione un Tenant...</option>';
+        list.forEach(t => {
+            const id = t.id || t.tenant_id;
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = `${t.name} (${id})`;
+            option.appendChild(document.createTextNode(''));
+            techElements.tenantSelect.appendChild(option);
+        });
+    } catch (err) {
+        addLog('Error cargando lista de tenants', 'error');
+    }
+}
+
+// Modificar la función init() para incluir la nueva lógica
+const originalInit = init;
+async function extendedInit() {
+    await originalInit();
+    
+    // Setup de Event Listeners Técnicos
+    techElements.btnLoadTech.onclick = loadTechnicalDetails;
+    techElements.btnSaveBlueprint.onclick = saveBlueprint;
+    techElements.btnAddRecord.onclick = addJsonRecord;
+    
+    await populateTenantSelect();
+}
+init = extendedInit;

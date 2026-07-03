@@ -126,18 +126,52 @@
         </div>
     </div>
 
-    <!-- DRAWER DE LOGS -->
-    <div id="log-drawer" class="log-drawer">
-        <div class="log-header">
-            <span style="font-weight: bold; font-size: 0.8rem;"><i class="fas fa-stream"></i> SYSTEM LIVE STREAM</span>
-            <div style="display: flex; gap: 10px;">
-                <button id="btn-clear-logs" class="btn btn-secondary btn-small">Clear</button>
-                <button id="btn-close-logs" class="btn btn-danger btn-small">X</button>
+    <!-- VISTA 6: GESTIÓN TÉCNICA JSONB -->
+    <div id="view-technical" class="view">
+        <div class="card">
+            <h3><i class="fas fa-microchip"></i> Infraestructura del Tenant</h3>
+            <div class="input-group">
+                <select id="tech-tenant-select" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg-dark); color: white;">
+                    <option value="">Seleccione un Tenant...</option>
+                </select>
+            </div>
+            <button id="btn-load-tech" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                <i class="fas fa-download"></i> Cargar Detalles
+            </button>
+        </div>
+
+        <div id="tech-details-container" style="display: none;">
+            <div class="card">
+                <h3><i class="fas fa-map"></i> Blueprint (Mapa JSONB)</h3>
+                <textarea id="tech-blueprint-editor" style="width: 100%; height: 200px; font-family: monospace; background: #1a1a1a; color: #00ff00; padding: 10px; border: 1px solid var(--border);" placeholder='{"entities": { ... }}'></textarea>
+                <button id="btn-save-blueprint" class="btn btn-success" style="width: 100%; margin-top: 10px;">
+                    <i class="fas fa-save"></i> Actualizar Estructura
+                </button>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-database"></i> Entidades Definidas</h3>
+                <div id="tech-entities-list" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                    <!-- Entities as chips -->
+                </div>
+                <div id="tech-data-explorer" style="display: none;">
+                    <h4 id="tech-current-entity" style="font-size: 0.9rem; color: var(--accent);">Entidad: </h4>
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead><tr id="tech-data-head"></tr></thead>
+                            <tbody id="tech-data-body"></tbody>
+                        </table>
+                    </div>
+                    <button id="btn-add-json-record" class="btn btn-secondary btn-small" style="margin-top: 10px;">
+                        <i class="fas fa-plus"></i> Agregar Registro JSON
+                    </button>
+                </div>
             </div>
         </div>
-        <div id="log-output" class="log-window"></div>
     </div>
 
+    <!-- DRAWER DE LOGS
+    ...
     <!-- NAVEGACIÓN INFERIOR -->
     <nav class="bottom-nav">
         <button class="nav-item active" onclick="showView('config')">
@@ -154,6 +188,9 @@
         </button>
         <button class="nav-item" onclick="showView('reports')">
             <i class="fas fa-bug"></i><span>Bugs</span>
+        </button>
+        <button class="nav-item" onclick="showView('technical')">
+            <i class="fas fa-microchip"></i><span>Técnico</span>
         </button>
         <button class="nav-item" onclick="toggleLogs()">
             <i class="fas fa-terminal"></i><span>Logs</span>

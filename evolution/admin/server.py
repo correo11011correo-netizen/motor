@@ -195,7 +195,111 @@ async def define_plan(request: PlanRequest):
 async def set_tenant_plan(tenant_id: str, plan_id: str):
     return await execute_sentinel_command("plan.set", {"tenant_id": tenant_id, "plan_id": plan_id})
 
+# --- ENDPOINTS DE GESTIÓN DE TENANTS Y DATOS (Administración Técnica) ---
+
+@app.get("/admin/api/tenants/{tenant_id}/details")
+async def get_tenant_details(tenant_id: str):
+    """Obtiene la información técnica completa de un tenant."""
+    # Para obtener el blueprint, necesitamos buscar en la lista de blueprints el que coincida con el tenant
+    # o usar un comando específico si existiera. Por ahora, listamos los tenants.
+    tenants_list = await execute_sentinel_command("system.tenant.list")
+    result = tenants_list.get("result", []) if isinstance(tenants_list, dict) else tenants_list
+    
+    tenant_info = next((t for t in result if t.get("id") == tenant_id), None)
+    if not tenant_info:
+        raise HTTPException(status_code=404, detail="Tenant no encontrado")
+        
+    return tenant_info
+
+@app.get("/admin/api/tenants/{tenant_id}/entities")
+async def get_tenant_entities(tenant_id: str):
+    """Lista todas las entidades JSONB definidas para un tenant."""
+    return await execute_sentinel_command("system.tenant.entities", {"tenant_id": tenant_id})
+
+@app.get("/admin/api/tenants/{tenant_id}/data/{entity}")
+async def get_tenant_data(tenant_id: str, entity: str):
+    """Obtiene los registros de una entidad específica para un tenant."""
+    return await execute_sentinel_command("data.list", {
+        "entity": entity,
+        "impersonate_tid": tenant_id
+    })
+
+@app.post("/admin/api/tenants/{tenant_id}/data/upsert")
+async def upsert_tenant_data(tenant_id: str, request: Request):
+    """Inserta o actualiza un registro en una entidad para un tenant."""
+    body = await request.json()
+    entity = body.get("entity")
+    data = body.get("data")
+    
+    if not entity or not data:
+        raise HTTPException(status_code=400, detail="Entity and Data are required")
+        
+    return await execute_sentinel_command("data.upsert", {
+        "entity": entity,
+        "data": data,
+        "impersonate_tid": tenant_id
+    })
+
+@app.post("/admin/api/tenants/{tenant_id}/blueprint")
+async def update_tenant_blueprint(tenant_id: str, request: Request):
+    """Actualiza la definición del Blueprint (el mapa JSONB) de un tenant."""
+    body = await request.json()
+    map_def = body.get("map_definition")
+    dev_name = body.get("developer_name", "Admin_Root")
+    
+    if not map_def:
+        raise HTTPException(status_code=400, detail="map_definition is required")
+        
+    # Nota: dev.blueprint.define usa el token del tenant. 
+    # Como el Admin es root, usamos la impersonación si el comando lo soporta 
+    # o delegamos la acción. 
+    return await execute_sentinel_command("dev.blueprint.define", {
+        "developer_name": dev_name,
+        "map_definition": map_def,
+        "impersonate_tid": tenant_id
+    })
+
+# --- CAPA DE GESTIÓN DE ESTADO VOLÁTIL (REDIS) ---
+
+@app.post("/admin/api/redis/set")
+async def redis_set(request: Request):
+    body = await request.json()
+    return await execute_sentinel_command("redis.set", body)
+
+@app.get("/admin/api/redis/get/{key}")
+async def redis_get(key: str):
+    return await execute_sentinel_command("redis.get", {"key": key})
+
+@app.post("/admin/api/redis/lpush")
+async def redis_lpush(request: Request):
+    body = await request.json()
+    return await execute_sentinel_command("redis.lpush", body)
+
+@app.get("/admin/api/redis/rpop/{key}")
+async def redis_rpop(key: str):
+    return await execute_sentinel_command("redis.rpop", {"key": key})
+
+@app.post("/admin/api/redis/hset")
+async def redis_hset(request: Request):
+    body = await request.json()
+    return await execute_sentinel_command("redis.hset", body)
+
+@app.get("/admin/api/redis/hget/{key}/{field}")
+async def redis_hget(key: str, field: str):
+    return await execute_sentinel_command("redis.hget", {"key": key, "field": field})
+
+@app.post("/admin/api/redis/expire")
+async def redis_expire(request: Request):
+    body = await request.json()
+    return await execute_sentinel_command("redis.expire", body)
+
+@app.get("/admin/api/redis/smembers/{key}")
+async def redis_smembers(key: str):
+    return await execute_sentinel_command("redis.smembers", {"key": key})
+
 # --- ENDPOINTS DE MÉTRICAS Y BACKUPS ---
+
+
 
 @app.get("/admin/api/metrics/global")
 async def get_global_metrics():
@@ -277,6 +381,17 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/admin/static", StaticFiles(directory=STATIC_DIR), name="admin_static")
+
+@app.get("/")
+async def serve_index():
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
+
+if __name__ == "__main__":
+    port = int(os.getenv("ADMIN_PORT", 8001))
+    logger.info(f"Starting Evolution Control Center (Master) on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
+")
 app.mount("/admin/static", StaticFiles(directory=STATIC_DIR), name="admin_static")
 
 @app.get("/")
