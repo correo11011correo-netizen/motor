@@ -4,6 +4,7 @@ import logging
 import uvicorn
 import httpx
 from typing import Any
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Header, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -22,19 +23,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger("EvolutionMotor.Main")
 
-app = FastAPI(
-    title="Evolution SaaS Motor",
-    description="The 'Slave' component of the Evolution Ecosystem. Manages business logic and dynamic DB connections.",
-)
-
 # Global HTTP Client for Proxying
 http_client = httpx.AsyncClient(timeout=10.0)
 
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cierra el cliente HTTP al apagar el servidor."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Gestiona el ciclo de vida de la aplicación."""
+    yield
+    # Lógica de apagado
     await http_client.aclose()
+
+app = FastAPI(
+    title="Evolution SaaS Motor",
+    description="The 'Slave' component of the Evolution Ecosystem. Manages business logic and dynamic DB connections.",
+    lifespan=lifespan,
+)
 
 
 @app.middleware("http")
