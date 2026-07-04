@@ -155,7 +155,10 @@ async function saveConfig() {
 async function testConnection() {
     updateStatus('CONNECTING', 'Probando Conexión...');
     try {
-        const result = await apiCall('/api/test-connection');
+        // El proxy en main.py mapea /admin/api/{path} -> /admin/api/{path} en el maestro
+        // Pero nosotros hemos añadido /test-connection al control_router que está en el Motor.
+        // Por lo tanto, debemos llamar al endpoint que acabamos de crear en el Motor.
+        const result = await apiCall('/api/test-connection'); 
         if (result.status === 'success') {
             updateStatus('OPERATIONAL', 'SISTEMA OPERATIVO');
             addLog('Conexión establecida con DB-Sentinel', 'success');
@@ -163,6 +166,7 @@ async function testConnection() {
         }
     } catch (err) {
         addLog('Test fallido: ' + err.message, 'error');
+        updateStatus('ERROR', 'ERROR DE CONEXIÓN');
     }
 }
 
@@ -170,12 +174,12 @@ async function refreshMetrics() {
     try {
         const result = await apiCall('/api/metrics/global');
         if (result.status === 'success') {
-            const m = result.metrics;
+            const m = result.result; // DB-Sentinel devuelve los datos en 'result'
             elements.globalMetrics.innerHTML = `
                 <div class="info-row"><span>Uptime:</span> <span class="value">${m.uptime}</span></div>
-                <div class="info-row"><span>Tenants Activos:</span> <span class="value">${m.active_tenants}</span></div>
-                <div class="info-row"><span>Carga CPU:</span> <span class="value">${m.cpu_load}%</span></div>
-                <div class="info-row"><span>Memoria:</span> <span class="value">${m.memory_usage}</span></div>
+                <div class="info-row"><span>Tenants Activos:</span> <span class="value">${m.total_tenants}</span></div>
+                <div class="info-row"><span>Eventos/seg:</span> <span class="value">${m.events_per_sec}</span></div>
+                <div class="info-row"><span>Almacenamiento:</span> <span class="value">${m.total_storage_bytes} bytes</span></div>
             `;
         }
     } catch (err) {

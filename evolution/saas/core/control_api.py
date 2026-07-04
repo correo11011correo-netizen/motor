@@ -86,3 +86,23 @@ async def get_status():
         admin_url=sentinel_client.url,
         tenants=list(sentinel_client._tenants.keys()),
     )
+
+
+@router.get("/test-connection")
+async def test_connection():
+    """
+    Valida la conexión ejecutando un comando de verificación en DB-Sentinel.
+    """
+    if not sentinel_client.is_connected:
+        raise HTTPException(status_code=400, detail="Motor is not linked to Sentinel.")
+
+    try:
+        # Ejecuta el comando real que vimos que funciona en DB-Sentinel
+        result = await sentinel_client.execute("system.db.verify_state")
+        return {
+            "status": "success",
+            "message": "Conexión establecida correctamente.",
+            "details": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Sentinel connection failed: {str(e)}")
