@@ -11,7 +11,8 @@ const state = {
     }
 };
 
-// Elementos de la UI
+// --- ELEMENTOS DE LA UI ---
+
 const elements = {
     statusLed: document.getElementById('status-led'),
     statusText: document.getElementById('status-text'),
@@ -22,6 +23,7 @@ const elements = {
     btnInitInfra: document.getElementById('btn-init-infra'),
     btnClearCache: document.getElementById('btn-clear-cache'),
     globalMetrics: document.getElementById('global-metrics'),
+// ...
 
     btnAddTenant: document.getElementById('btn-add-tenant'),
     btnRefreshTenants: document.getElementById('btn-refresh-tenants'),
@@ -554,6 +556,35 @@ async function populateTenantSelect() {
         addLog('Error cargando lista de tenants', 'error');
     }
 }
+
+// --- INICIALIZACIÓN ---
+
+function init() {
+    // Configuración & Salud
+    elements.btnLink.onclick = saveConfig;
+    elements.btnTest.onclick = testConnection;
+    elements.btnInitInfra.onclick = initInfra;
+    elements.btnClearCache.onclick = clearCache;
+
+    // Tenants
+    elements.btnAddTenant.onclick = createTenant;
+    elements.btnRefreshTenants.onclick = refreshTenants;
+
+    // SaaS & Planes
+    elements.btnDefinePlan.onclick = definePlan;
+
+    // Infraestructura
+    elements.btnSnapshot.onclick = createSnapshot;
+    elements.btnRestore.onclick = restoreSnapshot;
+
+    // Reportes
+    elements.btnRefreshReports.onclick = refreshReports;
+
+    addLog('Evolution Control Center Inicializado. Esperando comandos...', 'system');
+}
+
+// Ejecutar init al cargar la página
+window.onload = init;
 
 // Modificar la función init() para incluir la nueva lógica
 const originalInit = init;
