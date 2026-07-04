@@ -128,62 +128,71 @@ function updateStatus(status, text) {
         'DISCONNECTED': 'red',
         'CONNECTING': 'yellow',
         'ERROR': 'red',
-        'OPERATIONAL': 'green'
+        'OPERATIONAL': 'green',
+        'LOADING': 'yellow'
     }[status];
 }
 
 // --- ACCIONES de CONFIGURACIÓN & SALUD ---
 
 async function saveConfig() {
+    updateStatus('LOADING', 'Guardando configuración...');
     const url = elements.dbUrl.value;
     const token = elements.dbToken.value;
 
     if (!url || !token) {
         addLog('URL y Token son obligatorios', 'error');
+        updateStatus('DISCONNECTED', 'Faltan datos');
         return;
     }
 
     try {
-        await apiCall('/internal/config', 'POST', { url, token });
-        addLog('Configuración guardada correctamente', 'success');
+        const response = await apiCall('/internal/config', 'POST', { url, token });
+        addLog('Configuración guardada: ' + JSON.stringify(response), 'success');
         await testConnection();
     } catch (err) {
-        addLog('Error al guardar: ' + err.message, 'error');
+        addLog('Error crítico al guardar: ' + err.message, 'error');
+        updateStatus('ERROR', 'Error al guardar');
     }
 }
 
 async function testConnection() {
     updateStatus('CONNECTING', 'Probando Conexión...');
+    addLog('Iniciando test de conexión con DB-Sentinel...', 'info');
+    
     try {
-        // El proxy en main.py mapea /admin/api/{path} -> /admin/api/{path} en el maestro
-        // Pero nosotros hemos añadido /test-connection al control_router que está en el Motor.
-        // Por lo tanto, debemos llamar al endpoint que acabamos de crear en el Motor.
         const result = await apiCall('/api/test-connection'); 
         if (result.status === 'success') {
             updateStatus('OPERATIONAL', 'SISTEMA OPERATIVO');
-            addLog('Conexión establecida con DB-Sentinel', 'success');
+            addLog('Conexión establecida: ' + JSON.stringify(result.details), 'success');
             await refreshMetrics();
         }
     } catch (err) {
-        addLog('Test fallido: ' + err.message, 'error');
+        addLog('FALLO DE CONEXIÓN: ' + err.message, 'error');
         updateStatus('ERROR', 'ERROR DE CONEXIÓN');
     }
 }
 
 async function refreshMetrics() {
+    updateStatus('LOADING', 'Actualizando métricas...');
     try {
         const result = await apiCall('/api/metrics/global');
         if (result.status === 'success') {
-            const m = result.result; // DB-Sentinel devuelve los datos en 'result'
+            const m = result.result;
             elements.globalMetrics.innerHTML = `
                 <div class="info-row"><span>Uptime:</span> <span class="value">${m.uptime}</span></div>
                 <div class="info-row"><span>Tenants Activos:</span> <span class="value">${m.total_tenants}</span></div>
                 <div class="info-row"><span>Eventos/seg:</span> <span class="value">${m.events_per_sec}</span></div>
                 <div class="info-row"><span>Almacenamiento:</span> <span class="value">${m.total_storage_bytes} bytes</span></div>
             `;
+            addLog('Métricas actualizadas correctamente', 'success');
         }
     } catch (err) {
-        elements.globalMetrics.textContent = 'Error al cargar métricas: ' + err.message;
+        addLog('Error al cargar métricas: ' + err.message, 'error');
+    } finally {
+        if (state.connectionStatus === 'LOADING') {
+            updateStatus('OPERATIONAL', 'SISTEMA OPERATIVO');
+        }
     }
 }
 

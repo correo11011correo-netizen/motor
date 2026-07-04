@@ -106,3 +106,23 @@ async def test_connection():
         }
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Sentinel connection failed: {str(e)}")
+
+
+@router.get("/metrics/global")
+async def get_global_metrics():
+    """
+    Obtiene métricas globales ejecutando el comando correspondiente en DB-Sentinel.
+    """
+    if not sentinel_client.is_connected:
+        raise HTTPException(status_code=400, detail="Motor is not linked to Sentinel.")
+
+    try:
+        # Usamos el comando de métricas que validamos anteriormente
+        result = await sentinel_client.execute("system.metrics.global")
+        return {
+            "status": "success",
+            "result": result,
+            "message": "Global metrics retrieved from Sentinel."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to retrieve metrics: {str(e)}")
