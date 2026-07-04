@@ -144,7 +144,7 @@ async function saveConfig() {
     }
 
     try {
-        await apiCall('/api/config', 'POST', { url, token });
+        await apiCall('/internal/config', 'POST', { url, token });
         addLog('Configuración guardada correctamente', 'success');
         await testConnection();
     } catch (err) {
