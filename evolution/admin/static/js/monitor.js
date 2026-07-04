@@ -22,13 +22,13 @@ const elements = {
     btnInitInfra: document.getElementById('btn-init-infra'),
     btnClearCache: document.getElementById('btn-clear-cache'),
     globalMetrics: document.getElementById('global-metrics'),
-    
+
     btnAddTenant: document.getElementById('btn-add-tenant'),
     btnRefreshTenants: document.getElementById('btn-refresh-tenants'),
     tenantName: document.getElementById('tenant-name'),
     tenantPlan: document.getElementById('tenant-plan'),
     tenantList: document.getElementById('tenant-list'),
-    
+
     plansList: document.getElementById('plans-list'),
     planId: document.getElementById('plan-id'),
     planName: document.getElementById('plan-name'),
@@ -87,7 +87,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         if (body) options.body = JSON.stringify(body);
 
         const response = await fetch(finalEndpoint, options);
-        
+
         // 1. Validar estado HTTP
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -99,7 +99,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         // 2. Validar errores lógicos del negocio (Sentinel Pattern)
         if (data.status === 'error' || data.error_code) {
             const msg = data.message || data.detail || `Error ${data.error_code || 'desconocido'}`;
-            
+
             if (data.error_code === 'ERR_DB_NOT_CONFIGURED') {
                 updateStatus('DISCONNECTED', 'DESCONECTADO (No Configurado)');
             } else if (data.error_code === 'ERR_DB_CONNECTION_FAILED') {
@@ -123,7 +123,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 function updateStatus(status, text) {
     state.connectionStatus = status;
     elements.statusText.textContent = text;
-    
+
     elements.statusLed.className = 'led ' + {
         'DISCONNECTED': 'red',
         'CONNECTING': 'yellow',
@@ -231,7 +231,7 @@ async function refreshTenants() {
         const result = await apiCall('/api/tenants/list');
         const tenants = Array.isArray(result) ? result : (result.tenants || []);
         elements.tenantList.innerHTML = '';
-        
+
         tenants.forEach(t => {
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -257,7 +257,7 @@ async function refreshPlans() {
         const result = await apiCall('/api/plans/list');
         const plans = Array.isArray(result) ? result : (result.plans || []);
         elements.plansList.innerHTML = '';
-        
+
         plans.forEach(p => {
             const div = document.createElement('div');
             div.className = 'report-item';
@@ -343,7 +343,7 @@ async function refreshReports() {
         const result = await apiCall('/api/reports');
         const reports = Array.isArray(result) ? result : (result.reports || []);
         elements.reportsList.innerHTML = '';
-        
+
         if (reports.length === 0) {
             elements.reportsList.innerHTML = '<div class="log-entry">No hay reportes pendientes.</div>';
             return;
@@ -406,18 +406,18 @@ async function loadTechnicalDetails() {
 
     try {
         updateStatus('CONNECTING', 'Cargando Infraestructura...');
-        
+
         // 1. Cargar Detalles Básicos y Blueprint
         const details = await apiCall(`/api/tenants/${tenantId}/details`);
-        
+
         // Intentamos obtener el blueprint actual (esto requiere que el servidor Admin lo implemente)
         // Por ahora, cargamos el blueprint si está en los detalles o dejamos el editor vacío.
         techElements.blueprintEditor.value = JSON.stringify(details.blueprint || {}, null, 2);
-        
+
         // 2. Cargar Entidades
         const entities = await apiCall(`/api/tenants/${tenantId}/entities`);
         techElements.entitiesList.innerHTML = '';
-        
+
         if (Array.isArray(entities)) {
             entities.forEach(ent => {
                 const chip = document.createElement('button');
@@ -449,13 +449,13 @@ async function exploreEntity(entityName) {
     try {
         techElements.dataExplorer.style.display = 'block';
         techElements.currentEntityLabel.textContent = `Entidad: ${entityName}`;
-        
+
         const data = await apiCall(`/api/tenants/${tenantId}/data/${entityName}`);
         const records = data.result || (Array.isArray(data) ? data : []);
-        
+
         techElements.dataHead.innerHTML = '';
         techElements.dataBody.innerHTML = '';
-        
+
         if (records.length === 0) {
             techElements.dataBody.innerHTML = '<tr><td colspan="100%">No hay registros en esta entidad.</td></tr>';
             return;
@@ -507,9 +507,9 @@ async function addJsonRecord() {
     const tenantId = techElements.tenantSelect.value;
     const entity = techElements.currentEntityLabel.textContent.replace('Entidad: ', '');
     const dataStr = prompt('Ingrese el registro JSON (ej: {"name": "Test", "price": 10}):');
-    
+
     if (!dataStr) return;
-    
+
     try {
         const jsonData = JSON.parse(dataStr);
         await apiCall(`/api/tenants/${tenant_id}/data/upsert`, 'POST', {
@@ -527,7 +527,7 @@ async function populateTenantSelect() {
     try {
         const tenants = await apiCall('/api/tenants/list');
         const list = Array.isArray(tenants) ? tenants : (tenants.tenants || tenants.result || []);
-        
+
         techElements.tenantSelect.innerHTML = '<option value="">Seleccione un Tenant...</option>';
         list.forEach(t => {
             const id = t.id || t.tenant_id;
@@ -546,12 +546,12 @@ async function populateTenantSelect() {
 const originalInit = init;
 async function extendedInit() {
     await originalInit();
-    
+
     // Setup de Event Listeners Técnicos
     techElements.btnLoadTech.onclick = loadTechnicalDetails;
     techElements.btnSaveBlueprint.onclick = saveBlueprint;
     techElements.btnAddRecord.onclick = addJsonRecord;
-    
+
     await populateTenantSelect();
 }
 init = extendedInit;

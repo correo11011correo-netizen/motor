@@ -1,7 +1,7 @@
-from typing import Any
 from .data_interface import DataServiceInterface, ServiceResponse
 from .context import TenantContext
 from .dispatcher import command
+
 
 class SystemCommandHandler:
     """
@@ -14,7 +14,7 @@ class SystemCommandHandler:
         description="Retrieves the audit trail for a specific business application.",
         params_model={"limit": "int", "offset": "int", "command": "str"},
     )
-    def get_logs(
+    async def get_logs(
         self,
         data_service: DataServiceInterface,
         context: TenantContext,
@@ -24,13 +24,20 @@ class SystemCommandHandler:
     ) -> ServiceResponse:
         try:
             # Delegamos la query compleja al servicio de datos
-            res = data_service.execute_custom("GET_AUDIT_LOGS", {
-                "tenant_id": str(context.tenant_id),
-                "limit": limit,
-                "offset": offset,
-                "command": command
-            })
-            return res if res.success else ServiceResponse.error_res(res.error, "AUDIT_GET_ERROR")
+            res = await data_service.execute_custom(
+                "GET_AUDIT_LOGS",
+                {
+                    "tenant_id": str(context.tenant_id),
+                    "limit": limit,
+                    "offset": offset,
+                    "command": command,
+                },
+            )
+            return (
+                res
+                if res.success
+                else ServiceResponse.error_res(res.error, "AUDIT_GET_ERROR")
+            )
         except Exception as e:
             return ServiceResponse.error_res(f"Error: {str(e)}", "AUDIT_GET_ERROR")
 
@@ -39,7 +46,7 @@ class SystemCommandHandler:
         description="Creates a new employee user in the business database.",
         params_model={"username": "string", "password": "string", "role": "string"},
     )
-    def create_user(
+    async def create_user(
         self,
         data_service: DataServiceInterface,
         context: TenantContext,
@@ -49,41 +56,57 @@ class SystemCommandHandler:
     ) -> ServiceResponse:
         try:
             import hashlib
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
 
-            res = data_service.insert("users", {
-                "email": username, 
-                "password_hash": password_hash, 
-                "role": role, 
-                "tenant_id": str(context.tenant_id)
-            })
+            # Implementamos un salt dinámico basado en tenant y username para mitigar rainbow tables
+            salt = f"{context.tenant_id}:{username}"
+            salted_password = f"{salt}:{password}"
+            password_hash = hashlib.sha256(salted_password.encode()).hexdigest()
+
+            res = await data_service.insert(
+                "users",
+                {
+                    "email": username,
+                    "password_hash": password_hash,
+                    "role": role,
+                    "tenant_id": str(context.tenant_id),
+                },
+            )
             if not res.success:
                 return res
-            
-            return ServiceResponse.success_res(message=f"User {username} created successfully.")
+
+            return ServiceResponse.success_res(
+                message=f"User {username} created successfully."
+            )
         except Exception as e:
-            return ServiceResponse.error_res(f"Error creating user: {str(e)}", "USER_CREATE_ERROR")
+            return ServiceResponse.error_res(
+                f"Error creating user: {str(e)}", "USER_CREATE_ERROR"
+            )
 
     @command(
         name="system.users.list",
         description="Lists all employees and their assigned permissions.",
         params_model={},
     )
-    def list_users(self, data_service: DataServiceInterface, context: TenantContext) -> ServiceResponse:
+    async def list_users(
+        self, data_service: DataServiceInterface, context: TenantContext
+    ) -> ServiceResponse:
         try:
-            res = data_service.query("users", filters={"tenant_id": str(context.tenant_id)})
-            if not res.success:
-                return res
+            # Migración a API Motor: Solicitamos la lista minimalista directamente
+            # para evitar el transporte de datos sensibles (hashes) hacia el handler.
+            res = await data_service.execute_custom(
+                "GET_USER_LIST_MINIMAL", {"tenant_id": str(context.tenant_id)}
+            )
 
-            # Filtrar solo los campos necesarios
-            filtered_data = [
-                {"id": u["id"], "email": u["email"], "role": u["role"]} 
-                for u in res.data
-            ]
+            if not res.success:
+                return ServiceResponse.error_res(res.error, "USER_LIST_ERROR")
+
             return ServiceResponse.success_res(
-                data=filtered_data, message="Employees listed."
+                data=res.data, message="Employees listed."
             )
         except Exception as e:
-            return ServiceResponse.error_res(f"Error listing users: {str(e)}", "USER_LIST_ERROR")
+            return ServiceResponse.error_res(
+                f"Error listing users: {str(e)}", "USER_LIST_ERROR"
+            )
+
 
 system_commands = SystemCommandHandler()

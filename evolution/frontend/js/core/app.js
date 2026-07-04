@@ -15,7 +15,7 @@ window.App = {
     async init() {
         try {
             UI.showLoading();
-            
+
             const token = localStorage.getItem('evolution_token');
             if (!token) {
                 this.showAuthScreen();
@@ -25,10 +25,10 @@ window.App = {
 
             // 1. Fetch UX Configuration from Backend
             const res = await API.getUXConfig();
-            
+
             // The backend /api/ux/config now returns user data if token is present
             this.state.user = res.user || { username: 'Usuario', role: 'employee' };
-            this.state.config = res.config || res.panels ? { 
+            this.state.config = res.config || res.panels ? {
                 menu: res.panels.map(p => ({ id: p.id, label: p.label, icon: p.icon })),
                 default_module: 'sales'
             } : null;
@@ -36,7 +36,7 @@ window.App = {
             // 2. Setup UI
             this.renderUserProfile();
             this.renderNavigation();
-            
+
             // 3. Load Default Module
             const defaultModule = this.state.config?.default_module || 'sales';
             this.loadModule(defaultModule);
@@ -59,7 +59,7 @@ window.App = {
                         <h1>Evolution SaaS</h1>
                         <p>Gestión Inteligente de Negocios</p>
                     </div>
-                    
+
                     <div class="auth-tabs">
                         <button class="auth-tab active" onclick="App.switchAuthTab('login')">Iniciar Sesión</button>
                         <button class="auth-tab" onclick="App.switchAuthTab('register')">Registro</button>
@@ -241,7 +241,7 @@ window.UI = {
         toast.className = `toast toast-${type}`;
         toast.innerText = message;
         document.body.appendChild(toast);
-        
+
         setTimeout(() => toast.classList.add('fade-out'), 3000);
         setTimeout(() => toast.remove(), 3500);
     },

@@ -18,12 +18,23 @@ class SentinelClient:
     def __init__(self):
         self._url = None
         self._admin_token = None
-        self._tenants = {} # Map of {tenant_id: token}
+        self._tenants = {}  # Map of {tenant_id: token}
         self._is_connected = False
+        self._http_client: Optional[httpx.AsyncClient] = None
         self._load_config()
 
     def _load_config(self):
-        """Carga la configuración desde el archivo persistente en la raíz del proyecto."""
+        """Carga la configuración priorizando variables de entorno, luego el archivo persistente."""
+        # 1. Prioridad: Variables de Entorno (Ideal para Railway/Docker)
+        env_url = os.getenv("SENTINEL_URL")
+        env_token = os.getenv("SENTINEL_TOKEN")
+
+        if env_url and env_token:
+            logger.info(f"Linking to Sentinel via Environment Variables: {env_url}")
+            self.link(env_url, env_token)
+            return
+
+        # 2. Fallback: Archivo persistente en la raíz del proyecto
         config_path = "admin_config.json"
         if os.path.exists(config_path):
             try:
@@ -32,13 +43,18 @@ class SentinelClient:
                     url = config.get("url")
                     token = config.get("token")
                     if url and token:
-                        logger.info(f"Auto-linking to Sentinel using persisted config: {url}")
+                        logger.info(
+                            f"Auto-linking to Sentinel using persisted config: {url}"
+                        )
                         self.link(url, token)
-                        # Cargar tenants si existen en el config
                         tenants = config.get("tenants", {})
                         self._tenants = tenants
             except Exception as e:
                 logger.error(f"Error loading config from {config_path}: {e}")
+        else:
+            logger.warning(
+                "No Sentinel configuration found (Env Vars or admin_config.json). System is DISCONNECTED."
+            )
 
     def link(self, url: str, token: str) -> bool:
         """
@@ -49,7 +65,6 @@ class SentinelClient:
 
         try:
             with httpx.Client() as client:
-                # Verificado mediante curl: El motor responde en /api/status
                 response = client.get(
                     f"{base_url}/api/status",
                     headers={"x-admin-token": token},
@@ -62,36 +77,42 @@ class SentinelClient:
                 self._url = base_url
                 self._admin_token = token
                 self._is_connected = True
+                # Inicializar cliente persistente
+                self._http_client = httpx.AsyncClient(timeout=10.0)
                 logger.info("Successfully linked to DB-Sentinel.")
                 return True
         except Exception as e:
             logger.error(f"Connection error: {e}")
             return False
 
-    def update_config(self, url: str, token: str, tenants: Optional[Dict[str, Any]] = None):
+    def update_config(
+        self, url: str, token: str, tenants: Optional[Dict[str, Any]] = None
+    ):
         """
         Actualiza la configuración en memoria y en disco.
         Permite cambiar la conexión sin reiniciar el servidor.
         """
         self._url = url.rstrip("/")
         self._admin_token = token
-        
+
         if tenants:
             self._tenants = tenants
 
-        # Persistencia inmediata en disco (Única fuente de verdad)
         try:
             with open("admin_config.json", "w") as f:
-                json.dump({
-                    "url": self._url,
-                    "token": self._admin_token,
-                    "tenants": self._tenants
-                }, f, indent=4)
+                json.dump(
+                    {
+                        "url": self._url,
+                        "token": self._admin_token,
+                        "tenants": self._tenants,
+                    },
+                    f,
+                    indent=4,
+                )
             logger.info("Configuration persisted to disk.")
         except Exception as e:
             logger.error(f"Failed to persist config: {e}")
 
-        # Intentamos validar la conexión inmediatamente
         self.link(url, token)
 
     def add_tenant(self, tenant_id: str, token: str):
@@ -111,19 +132,31 @@ class SentinelClient:
         self._admin_token = None
         self._tenants = {}
         self._is_connected = False
+        if self._http_client:
+            # Nota: disconnect es síncrono, el cierre del cliente es asíncrono
+            # En un entorno de producción, se manejaría vía shutdown de FastAPI
+            pass
         logger.info("System disconnected.")
 
+    async def close(self):
+        """Cierra el cliente HTTP persistente."""
+        if self._http_client:
+            await self._http_client.aclose()
+            self._http_client = None
+            logger.info("Sentinel HTTP client closed.")
+
     async def execute(
-        self, command: str, params: Optional[Dict[str, Any]] = None, tenant_id: Optional[str] = None
+        self,
+        command: str,
+        params: Optional[Dict[str, Any]] = None,
+        tenant_id: Optional[str] = None,
     ) -> Any:
         """
-        Ejecuta un comando. Usa el token del tenant si se proporciona,
-        de lo contrario usa el token maestro.
+        Ejecuta un comando usando el cliente persistente.
         """
-        if not self._is_connected:
-            raise ConnectionError("Motor is DISCONNECTED.")
+        if not self._is_connected or not self._http_client:
+            raise ConnectionError("Motor is DISCONNECTED or client not initialized.")
 
-        # Determinar qué token usar
         token = self._admin_token
         if tenant_id:
             if tenant_id in self._tenants:
@@ -131,38 +164,35 @@ class SentinelClient:
             else:
                 raise Exception(f"Tenant {tenant_id} is not configured in this Motor.")
 
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(
-                    f"{self._url}/exec?cmd={command}",
-                    headers={"x-admin-token": token},
-                    json=params or {},
-                    timeout=10.0,
-                )
+        try:
+            response = await self._http_client.post(
+                f"{self._url}/exec?cmd={command}",
+                headers={"x-admin-token": token},
+                json=params or {},
+            )
 
-                if response.status_code != 200:
-                    try:
-                        err = response.json()
-                        raise Exception(err.get("message", "Sentinel API Error"))
-                    except Exception:
-                        raise Exception(f"Sentinel API Error: {response.status_code}")
+            if response.status_code != 200:
+                try:
+                    err = response.json()
+                    raise Exception(err.get("message", "Sentinel API Error"))
+                except Exception:
+                    raise Exception(f"Sentinel API Error: {response.status_code}")
 
-                result = response.json()
-                if isinstance(result, dict) and "result" in result:
-                    return result["result"]
-                return result
+            result = response.json()
+            if isinstance(result, dict) and "result" in result:
+                return result["result"]
+            return result
 
-            except httpx.RequestError as e:
-                logger.error(f"Network error: {e}")
-                raise ConnectionError(f"Sentinel unreachable: {e}")
+        except httpx.RequestError as e:
+            logger.error(f"Network error: {e}")
+            raise ConnectionError(f"Sentinel unreachable: {e}")
 
     async def log_to_db(self, level: str, message: str, tenant: str = "SYSTEM"):
         """
         Almacena un log directamente en la base de datos del Administrador.
-        Utiliza la entidad 'system_logs'.
         """
         if not self._is_connected:
-            return  # No podemos loguear en DB si no estamos conectados
+            return
 
         try:
             await self.execute(

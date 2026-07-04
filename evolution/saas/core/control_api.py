@@ -49,8 +49,10 @@ async def connect_sentinel(request: ConnectionRequest):
 async def add_tenant(request: TenantRequest):
     """Registrar un token de tenant específico en el motor."""
     if not sentinel_client.is_connected:
-        raise HTTPException(status_code=400, detail="Motor must be linked to Sentinel first.")
-    
+        raise HTTPException(
+            status_code=400, detail="Motor must be linked to Sentinel first."
+        )
+
     sentinel_client.add_tenant(request.tenant_id, request.token)
     return {"status": "success", "message": f"Tenant {request.tenant_id} registered."}
 
@@ -80,7 +82,7 @@ async def disconnect_sentinel():
 async def get_status():
     """Retorna el estado actual y la lista de tenants configurados."""
     return SystemStatus(
-        connected=sentinel_client.is_connected, 
+        connected=sentinel_client.is_connected,
         admin_url=sentinel_client.url,
-        tenants=list(sentinel_client._tenants.keys())
+        tenants=list(sentinel_client._tenants.keys()),
     )

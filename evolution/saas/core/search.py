@@ -1,7 +1,8 @@
 import logging
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Dict
 
 logger = logging.getLogger("EvolutionMotor.SearchEngine")
+
 
 class SearchEngine:
     """
@@ -77,5 +78,6 @@ class SearchEngine:
 
         # Ordenar por score descendente
         return sorted(results, key=lambda x: x[0], reverse=True)
+
 
 search_engine = SearchEngine()

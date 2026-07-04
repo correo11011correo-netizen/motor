@@ -1,9 +1,10 @@
 import logging
-from typing import Any, List, Dict
-from .data_interface import DataServiceInterface, ServiceResponse
+from typing import List
+from .data_interface import DataServiceInterface
 from .context import TenantContext
 
 logger = logging.getLogger("EvolutionMotor.ModuleEntitlements")
+
 
 class ModuleEntitlementService:
     """
@@ -13,7 +14,9 @@ class ModuleEntitlementService:
 
     PLAN_HIERARCHY = {"free": 0, "pro": 1, "enterprise": 2}
 
-    async def get_active_modules(self, data_service: DataServiceInterface, context: TenantContext) -> List[str]:
+    async def get_active_modules(
+        self, data_service: DataServiceInterface, context: TenantContext
+    ) -> List[str]:
         """
         Calcula la unión de módulos permitidos por plan y módulos asignados individualmente.
         """
@@ -22,7 +25,7 @@ class ModuleEntitlementService:
 
         # Fetch all available modules
         res_modules = await data_service.query("available_modules")
-        
+
         active_modules = set()
         if res_modules.success:
             for mod in res_modules.data:
@@ -32,12 +35,15 @@ class ModuleEntitlementService:
                     active_modules.add(mod["module_id"])
 
         # 2. Módulos asignados explícitamente al Tenant (Overrides/Customs)
-        res_manual = await data_service.query("tenant_modules", filters={"tenant_id": str(context.tenant_id)})
-        
+        res_manual = await data_service.query(
+            "tenant_modules", filters={"tenant_id": str(context.tenant_id)}
+        )
+
         if res_manual.success:
             for row in res_manual.data:
                 active_modules.add(row["module_id"])
 
         return list(active_modules)
+
 
 module_entitlement_service = ModuleEntitlementService()
