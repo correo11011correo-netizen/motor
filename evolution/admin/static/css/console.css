@@ -48,7 +48,13 @@ body {
 .led { width: 8px; height: 8px; border-radius: 50%; }
 .led.red { background: var(--danger); box-shadow: 0 0 5px var(--danger); }
 .led.green { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
-.led.yellow { background: #ffcc00; box-shadow: 0 0 5px #ffcc00; }
+.led.yellow { background: #ffcc00; box-shadow: 0 0 5px #ffcc00; animation: pulse-yellow 1s infinite; }
+
+@keyframes pulse-yellow {
+    0% { opacity: 1; box-shadow: 0 0 5px #ffcc00; }
+    50% { opacity: 0.4; box-shadow: 0 0 15px #ffcc00; }
+    100% { opacity: 1; box-shadow: 0 0 5px #ffcc00; }
+}
 
 /* Navegación Inferior (Mobile First) */
 .bottom-nav {
