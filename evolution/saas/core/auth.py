@@ -142,7 +142,7 @@ class AuthService:
                         "sales": {
                             "fecha": "string",
                             "total": "float",
-                            "items": "json",
+                            "items": "object",
                             "employee_id": "string",
                         },
                         "cash_box": {
