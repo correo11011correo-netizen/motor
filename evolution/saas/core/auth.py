@@ -7,6 +7,10 @@ from typing import Any, Dict, Optional
 
 import jwt
 from .data_service import data_service
+from .sentinel import sentinel_client
+
+SECRET_KEY = os.getenv("JWT_SECRET", "OMNICORE_FALLBACK_SECRET_KEY_CHANGE_IN_PROD")
+ALGORITHM = "HS256"
 
 SECRET_KEY = os.getenv("JWT_SECRET", "OMNICORE_FALLBACK_SECRET_KEY_CHANGE_IN_PROD")
 ALGORITHM = "HS256"

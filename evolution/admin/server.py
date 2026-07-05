@@ -485,6 +485,11 @@ async def serve_index():
     return FileResponse(os.path.join(BASE_DIR, "index.html"))
 
 
+@app.get("/admin")
+async def serve_admin_index():
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
+
+
 if __name__ == "__main__":
     port = int(os.getenv("ADMIN_PORT", 8001))
     logger.info(f"Starting Evolution Control Center (Master) on port {port}...")

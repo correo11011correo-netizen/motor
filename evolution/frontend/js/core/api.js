@@ -3,7 +3,7 @@
  * El único puente entre el Frontend Puro y el Motor Evolution.
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://datos-production.up.railway.app";
 
 const API = {
     /**
