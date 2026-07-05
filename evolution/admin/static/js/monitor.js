@@ -628,9 +628,6 @@ function init() {
     addLog('Evolution Control Center Inicializado. Esperando comandos...', 'system');
 }
 
-// Ejecutar init al cargar la página
-window.onload = init;
-
 // Modificar la función init() para incluir la nueva lógica
 const originalInit = init;
 async function extendedInit() {
@@ -645,3 +642,6 @@ async function extendedInit() {
     await loadConfig();
 }
 init = extendedInit;
+
+// Ejecutar init al cargar la página
+window.onload = init;
