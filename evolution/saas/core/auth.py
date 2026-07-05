@@ -101,7 +101,41 @@ class AuthService:
         self, tenant_id: str, business_name: str
     ) -> None:
         try:
-            # 1. Bot Settings
+            # 1. DEFINICIÓN DE ESQUEMA (Paso Crítico)
+            # Definimos la estructura base para que el tenant pueda empezar a operar inmediatamente
+            await data_service.execute_custom(
+                "schema.define",
+                {
+                    "schema": {
+                        "products": {
+                            "codigo": "string",
+                            "nombre": "string",
+                            "precio": "float",
+                            "stock": "int",
+                            "categoria": "string",
+                        },
+                        "employees": {
+                            "nombre": "string",
+                            "rol": "string",
+                            "salario": "float",
+                            "fecha_ingreso": "string",
+                        },
+                        "sales": {
+                            "fecha": "string",
+                            "total": "float",
+                            "items": "json",
+                            "employee_id": "string",
+                        },
+                        "cash_box": {
+                            "abierta": "bool",
+                            "monto_inicial": "float",
+                            "ultima_actualizacion": "string",
+                        },
+                    }
+                }
+            )
+
+            # 2. Bot Settings
             await data_service.insert(
                 "bot_settings",
                 {
@@ -112,8 +146,8 @@ class AuthService:
                 },
             )
 
-            # 2. Datos Base (JSONB Mínimo)
-            # Creamos un set de productos iniciales para que el cliente vea el panel funcionando
+            # 3. Datos Base (Seed Data)
+            # Productos iniciales
             initial_products = [
                 {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "codigo": "PROD001", "nombre": "Producto Ejemplo 1", "precio": 10.0, "stock": 100, "categoria": "General"},
                 {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "codigo": "PROD002", "nombre": "Producto Ejemplo 2", "precio": 25.5, "stock": 50, "categoria": "General"},
@@ -122,7 +156,20 @@ class AuthService:
             for prod in initial_products:
                 await data_service.insert("products", prod)
                 
-            # Crear una venta de prueba
+            # Empleado inicial (el admin)
+            await data_service.insert(
+                "employees",
+                {
+                    "id": str(uuid.uuid4()),
+                    "tenant_id": tenant_id,
+                    "nombre": "Administrador Principal",
+                    "rol": "Admin",
+                    "salario": 0.0,
+                    "fecha_ingreso": datetime.datetime.utcnow().isoformat(),
+                }
+            )
+
+            # Venta de prueba para validar el flujo
             await data_service.insert(
                 "sales",
                 {
@@ -133,7 +180,8 @@ class AuthService:
                     "items": [
                         {"codigo": "PROD001", "qty": 1, "price": 10.0},
                         {"codigo": "PROD002", "qty": 1, "price": 25.5},
-                    ]
+                    ],
+                    "employee_id": "SYSTEM"
                 }
             )
             
