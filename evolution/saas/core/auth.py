@@ -251,7 +251,9 @@ class AuthService:
 
             res_tenant = await data_service.query("tenants", filters={"id": tenant_id})
 
-            if not res_tenant.success or not res_// (keeping the rest as is)
+            if not res_tenant.success or not res_tenant.data:
+                return None
+
             tenant = res_tenant.data[0]
             token = self.create_token(
                 tenant["id"], user["id"], user["role"], tenant["plan"]
