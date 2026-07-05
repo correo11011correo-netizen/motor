@@ -153,9 +153,18 @@ class SentinelClient:
     ) -> Any:
         """
         Ejecuta un comando usando el cliente persistente.
+        Incluye reconexión automática si el sistema tiene config pero está desconectado.
         """
+        # Intento de Reconexión Automática
         if not self._is_connected or not self._http_client:
-            raise ConnectionError("Motor is DISCONNECTED or client not initialized.")
+            if self._url and self._admin_token:
+                logger.info("Detected disconnected state with existing config. Attempting auto-reconnect...")
+                if self.link(self._url, self._admin_token):
+                    logger.info("Auto-reconnect successful.")
+                else:
+                    raise ConnectionError("Auto-reconnect failed: Sentinel unreachable.")
+            else:
+                raise ConnectionError("Motor is DISCONNECTED and no configuration is available.")
 
         token = self._admin_token
         if tenant_id:
@@ -183,9 +192,18 @@ class SentinelClient:
                 return result["result"]
             return result
 
-        except httpx.RequestError as e:
-            logger.error(f"Network error: {e}")
+        except (httpx.RequestError, httpx.HTTPStatusError) as e:
+            logger.error(f"Network error during execution: {e}")
+            # Marcamos como desconectado para forzar reconexión en la siguiente llamada
+            self._is_connected = False
+            if self._http_client:
+                await self._http_client.aclose()
+                self._http_client = None
             raise ConnectionError(f"Sentinel unreachable: {e}")
+
+        except Exception as e:
+            logger.error(f"Unexpected error during execute: {e}")
+            raise e
 
     async def log_to_db(self, level: str, message: str, tenant: str = "SYSTEM"):
         """
