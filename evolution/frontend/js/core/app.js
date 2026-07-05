@@ -138,7 +138,10 @@ window.App = {
             };
             const res = await API.authLogin(data);
             localStorage.setItem('evolution_token', res.token);
-            location.reload();
+            
+            // Instead of reload, we trigger the internal setup
+            await this.setupEnvironment();
+            UI.toast('Bienvenido de nuevo', 'success');
         } catch (e) {
             UI.toast(e.message, 'error');
         } finally {
@@ -158,11 +161,59 @@ window.App = {
             };
             const res = await API.authRegister(data);
             localStorage.setItem('evolution_token', res.token);
-            location.reload();
+            
+            // Immediate transition to dashboard
+            await this.setupEnvironment();
+            UI.toast('Cuenta creada con éxito', 'success');
         } catch (e) {
             UI.toast(e.message, 'error');
         } finally {
             UI.hideLoading();
+        }
+    },
+
+    async setupEnvironment() {
+        // Transition from Auth to Dashboard without showing Server Wait again
+        try {
+            const res = await API.getUXConfig();
+            this.state.user = res.user || { username: 'Usuario', role: 'employee' };
+            this.state.config = res.config || res.panels ? {
+                menu: res.panels.map(p => ({ id: p.id, label: p.label, icon: p.icon })),
+                default_module: 'sales'
+            } : null;
+
+            this.renderUserProfile();
+            this.renderNavigation();
+
+            const defaultModule = this.state.config?.menu[0]?.id || 'sales';
+            
+            // Hide auth screen and show dashboard
+            document.getElementById('app-root').innerHTML = `
+                <div id="sidebar" class="sidebar">
+                    <div class="sidebar-logo">
+                        <span class="logo-icon">🚀</span>
+                        <span class="logo-text">Evolution</span>
+                    </div>
+                    <nav id="app-nav" class="nav-menu"></nav>
+                    <div class="sidebar-footer">
+                        <div id="user-profile" class="user-pill">
+                            <span class="user-name"></span>
+                            <span class="user-role"></span>
+                        </div>
+                        <button id="logout-btn" class="btn-logout" onclick="App.logout()">🚪 Salir</button>
+                    </div>
+                </div>
+                <main id="app-main">
+                    <div id="app-content" class="app-content"></div>
+                </main>
+            `;
+            
+            this.renderUserProfile();
+            this.renderNavigation();
+            this.loadModule(defaultModule);
+        } catch (e) {
+            console.error("Env setup error:", e);
+            UI.toast('Error configurando entorno', 'error');
         }
     },
 
