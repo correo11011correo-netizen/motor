@@ -171,7 +171,12 @@ class SentinelClient:
             if tenant_id in self._tenants:
                 token = self._tenants[tenant_id]
             else:
-                raise Exception(f"Tenant {tenant_id} is not configured in this Motor.")
+                # Si el tenant_id es proporcionado pero no está en el mapa, 
+                # seguimos usando el admin_token para permitir la creación/configuración
+                token = self._admin_token
+        
+        if not token:
+            raise ConnectionError("No authentication token available (Admin or Tenant).")
 
         try:
             response = await self._http_client.post(
