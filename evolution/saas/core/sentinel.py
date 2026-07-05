@@ -193,8 +193,11 @@ class SentinelClient:
                     raise Exception(f"Sentinel API Error: {response.status_code}")
 
             result = response.json()
-            if isinstance(result, dict) and "result" in result:
-                return result["result"]
+            if isinstance(result, dict):
+                if "result" in result:
+                    return result["result"]
+                if "data" in result:
+                    return result["data"]
             return result
 
         except (httpx.RequestError, httpx.HTTPStatusError) as e:
