@@ -46,12 +46,19 @@ class AuthService:
                 {"name": business_name, "plan": plan}
             )
             
-            if not res_tenant_cmd.success:
-                return {"success": False, "error": res_tenant_cmd.message}
+            if not res_tenant_cmd.success or not res_tenant_cmd.data:
+                return {"success": False, "error": res_tenant_cmd.message or "Failed to create tenant"}
 
             tenant_data = res_tenant_cmd.data
-            tenant_id = tenant_data["tenant_id"]
-            tenant_api_key = tenant_data["api_key"]
+            if not isinstance(tenant_data, dict):
+                return {"success": False, "error": f"Unexpected tenant data format: {type(tenant_data)}"}
+
+            tenant_id = tenant_data.get("tenant_id")
+            tenant_api_key = tenant_data.get("api_key")
+
+            if not tenant_id or not tenant_api_key:
+                return {"success": False, "error": "Tenant created but missing ID or API Key in response"}
+
             webhook_secret = secrets.token_urlsafe(32)
 
             # 3. Crear Usuario Administrador vinculado al nuevo Tenant
