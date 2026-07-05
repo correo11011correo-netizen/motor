@@ -113,16 +113,42 @@
         </div>
     </div>
 
-    <!-- VISTA 5: REPORTES & BUGS -->
+    <!-- VISTA 5: CONSOLA MAESTRO -->
     <div id="view-reports" class="view">
         <div class="card">
-            <h3><i class="fas fa-bug"></i> Soporte Técnico</h3>
-            <button id="btn-refresh-reports" class="btn btn-secondary btn-small" style="margin-bottom: 15px;">
-                <i class="fas fa-sync"></i> Actualizar Reportes
-            </button>
-            <div id="reports-list">
-                <div class="log-entry">Cargando reportes...</div>
+            <h3><i class="fas fa-terminal"></i> Consola Maestro (Admin Root)</h3>
+            <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 15px;">
+                Ejecución directa de primitivas de DB-Sentinel. Use con precaución.
+            </p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                <button id="btn-cmd-init" class="btn btn-secondary btn-small" title="system.init_infra">
+                    <i class="fas fa-sync"></i> Init Infra
+                </button>
+                <button id="btn-cmd-format" class="btn btn-danger btn-small" title="system.db.format">
+                    <i class="fas fa-bomb"></i> Nuclear Format
+                </button>
             </div>
+
+            <div class="input-group">
+                <label style="font-size: 0.7rem; color: var(--accent);">Comando a ejecutar</label>
+                <select id="cmd-selector" style="width: 100%; padding: 10px; background: #000; color: white; border: 1px solid var(--border); border-radius: 8px;">
+                    <option value="system.metrics.global">system.metrics.global (Métricas)</option>
+                    <option value="system.db.verify_state">system.db.verify_state (Estado DB)</option>
+                    <option value="system.tenant.list">system.tenant.list (Listar Tenants)</option>
+                    <option value="dev.blueprint.list">dev.blueprint.list (Listar Blueprints)</option>
+                    <option value="dev.cache.clear">dev.cache.clear (Limpiar Caché)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label style="font-size: 0.7rem; color: var(--accent);">Parámetros (JSON)</label>
+                <textarea id="cmd-params" style="width: 100%; height: 80px; background: #000; color: #00ff00; border: 1px solid var(--border); border-radius: 8px; font-family: monospace; padding: 10px;" placeholder='{"key": "value"}'></textarea>
+            </div>
+
+            <button id="btn-execute-cmd" class="btn btn-primary" style="width: 100%;">
+                <i class="fas fa-play"></i> Ejecutar Comando
+            </button>
         </div>
     </div>
 

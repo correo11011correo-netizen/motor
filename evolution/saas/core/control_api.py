@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any, Optional
 
 from .sentinel import sentinel_client
 
-router = APIRouter(prefix="/control", tags=["System Control"])
+router = APIRouter(prefix="/internal/control", tags=["System Control"])
 
 
 class ConnectionRequest(BaseModel):
@@ -17,14 +17,40 @@ class TenantRequest(BaseModel):
     token: str
 
 
+class CommandRequest(BaseModel):
+    cmd: str
+    params: Optional[Dict[str, Any]] = None
+
+
 class SystemStatus(BaseModel):
     connected: bool
     admin_url: str | None
     tenants: List[str] = []
 
 
+@router.post("/execute")
+async def execute_sentinel_command(request: CommandRequest):
+    """
+    Ejecuta un comando arbitrario en DB-Sentinel.
+    Utilizado por la Consola Maestro para administración total.
+    """
+    if not sentinel_client.is_connected:
+        raise HTTPException(status_code=400, detail="Motor is not linked to Sentinel.")
+
+    try:
+        result = await sentinel_client.execute(request.cmd, request.params)
+        return {
+            "status": "success",
+            "command": request.cmd,
+            "result": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Sentinel execution error: {str(e)}")
+
+
 @router.post("/connect")
 async def connect_sentinel(request: ConnectionRequest):
+# ...
     """
     Vincular el motor al Administrador de DB (Infraestructura).
     """

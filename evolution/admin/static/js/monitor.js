@@ -12,7 +12,7 @@ const state = {
 };
 
 // --- ELEMENTOS DE LA UI ---
-
+// Elementos de la UI
 const elements = {
     statusLed: document.getElementById('status-led'),
     statusText: document.getElementById('status-text'),
@@ -23,9 +23,17 @@ const elements = {
     btnInitInfra: document.getElementById('btn-init-infra'),
     btnClearCache: document.getElementById('btn-clear-cache'),
     globalMetrics: document.getElementById('global-metrics'),
-// ...
+
+    // Consola Maestro
+    btnCmdInit: document.getElementById('btn-cmd-init'),
+    btnCmdFormat: document.getElementById('btn-cmd-format'),
+    cmdSelector: document.getElementById('cmd-selector'),
+    cmdParams: document.getElementById('cmd-params'),
+    btnExecuteCmd: document.getElementById('btn-execute-cmd'),
 
     btnAddTenant: document.getElementById('btn-add-tenant'),
+// ...
+
     btnRefreshTenants: document.getElementById('btn-refresh-tenants'),
     tenantName: document.getElementById('tenant-name'),
     tenantPlan: document.getElementById('tenant-plan'),
@@ -557,6 +565,26 @@ async function populateTenantSelect() {
     }
 }
 
+async function executeCustomCommand(cmd, params = null) {
+    updateStatus('LOADING', `Ejecutando ${cmd}...`);
+    addLog(`Enviando comando: ${cmd} | Params: ${JSON.stringify(params || {})}`, 'info');
+    
+    try {
+        const result = await apiCall('/internal/control/execute', 'POST', { cmd, params });
+        addLog(`RESPUESTA [${cmd}]: ` + JSON.stringify(result.result), 'success');
+        
+        // Si el comando es de métricas, actualizamos el panel automáticamente
+        if (cmd === 'system.metrics.global') {
+            await refreshMetrics();
+        }
+    } catch (err) {
+        addLog(`ERROR [${cmd}]: ` + err.message, 'error');
+        updateStatus('ERROR', 'Error de ejecución');
+    } finally {
+        updateStatus('OPERATIONAL', 'SISTEMA OPERATIVO');
+    }
+}
+
 // --- INICIALIZACIÓN ---
 
 function init() {
@@ -565,6 +593,26 @@ function init() {
     elements.btnTest.onclick = testConnection;
     elements.btnInitInfra.onclick = initInfra;
     elements.btnClearCache.onclick = clearCache;
+
+    // Consola Maestro
+    elements.btnCmdInit.onclick = () => executeCustomCommand('system.init_infra');
+    elements.btnCmdFormat.onclick = () => {
+        if (confirm('⚠️ ¡CUIDADO! Esta acción borrará TODA la base de datos. ¿Estás seguro?')) {
+            executeCustomCommand('system.db.format');
+        }
+    };
+    elements.btnExecuteCmd.onclick = () => {
+        const cmd = elements.cmdSelector.value;
+        let params = null;
+        try {
+            const val = elements.cmdParams.value.trim();
+            params = val ? JSON.parse(val) : null;
+        } catch (e) {
+            addLog('Error en formato JSON de parámetros', 'error');
+            return;
+        }
+        executeCustomCommand(cmd, params);
+    };
 
     // Tenants
     elements.btnAddTenant.onclick = createTenant;
