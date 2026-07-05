@@ -169,8 +169,8 @@ class AuthService:
 
             # 4. Datos Base (Seed Data)
             initial_products = [
-                {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "codigo": "PROD001", "nombre": "Producto Ejemplo 1", "precio": 10.0, "stock": 100, "categoria": "General"},
-                {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "codigo": "PROD002", "nombre": "Producto Ejemplo 2", "precio": 25.5, "stock": 50, "categoria": "General"},
+                {"codigo": "PROD001", "nombre": "Producto Ejemplo 1", "precio": 10.0, "stock": 100, "categoria": "General"},
+                {"codigo": "PROD002", "nombre": "Producto Ejemplo 2", "precio": 25.5, "stock": 50, "categoria": "General"},
             ]
 
             for prod in initial_products:
@@ -179,8 +179,6 @@ class AuthService:
             await data_service.insert(
                 "employees",
                 {
-                    "id": str(uuid.uuid4()),
-                    "tenant_id": tenant_id,
                     "nombre": "Administrador Principal",
                     "rol": "Admin",
                     "salario": 0.0,
@@ -192,8 +190,6 @@ class AuthService:
             await data_service.insert(
                 "sales",
                 {
-                    "id": str(uuid.uuid4()),
-                    "tenant_id": tenant_id,
                     "fecha": datetime.datetime.utcnow().isoformat(),
                     "total": 35.5,
                     "items": [
