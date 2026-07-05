@@ -65,6 +65,7 @@ window.App = {
     },
 
     showAuthScreen() {
+        console.log("[App] Showing Auth Screen");
         UI.render('app-root', `
             <div class="auth-container">
                 <div class="auth-card">
@@ -75,8 +76,8 @@ window.App = {
                     </div>
 
                     <div class="auth-tabs">
-                        <button class="auth-tab active" onclick="App.switchAuthTab('login')">Iniciar Sesión</button>
-                        <button class="auth-tab" onclick="App.switchAuthTab('register')">Registro</button>
+                        <button id="tab-login" class="auth-tab active">Iniciar Sesión</button>
+                        <button id="tab-register" class="auth-tab">Registro</button>
                     </div>
 
                     <div id="auth-body" class="auth-body">
@@ -85,17 +86,25 @@ window.App = {
                 </div>
             </div>
         `);
+
+        // Setup Tab Listeners
+        document.getElementById('tab-login').onclick = () => this.switchAuthTab('login');
+        document.getElementById('tab-register').onclick = () => this.switchAuthTab('register');
+
         this.switchAuthTab('login');
     },
 
     switchAuthTab(type) {
+        console.log(`[App] Switching tab to: ${type}`);
         const body = document.getElementById('auth-body');
-        const tabs = document.querySelectorAll('.auth-tab');
-        tabs.forEach(t => t.classList.toggle('active', t.innerText.toLowerCase().includes(type === 'login' ? 'sesión' : 'registro')));
+        const tabLogin = document.getElementById('tab-login');
+        const tabReg = document.getElementById('tab-register');
 
         if (type === 'login') {
+            tabLogin.classList.add('active');
+            tabReg.classList.remove('active');
             body.innerHTML = `
-                <form onsubmit="App.handleLogin(event)" class="auth-form">
+                <form id="form-login" class="auth-form">
                     <div class="input-group">
                         <label>Email</label>
                         <input type="email" id="login-email" required placeholder="tu@email.com">
@@ -107,9 +116,12 @@ window.App = {
                     <button type="submit" class="btn btn-primary btn-block">Entrar</button>
                 </form>
             `;
+            document.getElementById('form-login').onsubmit = (e) => this.handleLogin(e);
         } else {
+            tabReg.classList.add('active');
+            tabLogin.classList.remove('active');
             body.innerHTML = `
-                <form onsubmit="App.handleRegister(event)" class="auth-form">
+                <form id="form-register" class="auth-form">
                     <div class="input-group">
                         <label>Nombre del Negocio</label>
                         <input type="text" id="reg-business" required placeholder="Mi Supermercado">
@@ -125,24 +137,28 @@ window.App = {
                     <button type="submit" class="btn btn-primary btn-block">Crear Cuenta</button>
                 </form>
             `;
+            document.getElementById('form-register').onsubmit = (e) => this.handleRegister(e);
         }
     },
 
     async handleLogin(e) {
         e.preventDefault();
+        console.log("[App] handleLogin triggered");
         UI.showLoading();
         try {
             const data = {
                 email: document.getElementById('login-email').value,
                 password: document.getElementById('login-password').value
             };
+            console.log("[App] Sending login request:", data);
             const res = await API.authLogin(data);
+            console.log("[App] Login success:", res);
             localStorage.setItem('evolution_token', res.token);
             
-            // Instead of reload, we trigger the internal setup
             await this.setupEnvironment();
             UI.toast('Bienvenido de nuevo', 'success');
         } catch (e) {
+            console.error("[App] Login error:", e);
             UI.toast(e.message, 'error');
         } finally {
             UI.hideLoading();
@@ -151,6 +167,7 @@ window.App = {
 
     async handleRegister(e) {
         e.preventDefault();
+        console.log("[App] handleRegister triggered");
         UI.showLoading();
         try {
             const data = {
@@ -159,13 +176,15 @@ window.App = {
                 password: document.getElementById('reg-password').value,
                 plan: 'free'
             };
+            console.log("[App] Sending register request:", data);
             const res = await API.authRegister(data);
+            console.log("[App] Register success:", res);
             localStorage.setItem('evolution_token', res.token);
             
-            // Immediate transition to dashboard
             await this.setupEnvironment();
             UI.toast('Cuenta creada con éxito', 'success');
         } catch (e) {
+            console.error("[App] Register error:", e);
             UI.toast(e.message, 'error');
         } finally {
             UI.hideLoading();
