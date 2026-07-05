@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 
 from .sentinel import sentinel_client
 
-router = APIRouter(prefix="/internal/control", tags=["System Control"])
+router = APIRouter(prefix="/admin/internal/control", tags=["System Control"])
 
 
 class ConnectionRequest(BaseModel):
