@@ -39,45 +39,52 @@ class AuthService:
                     return {"success": False, "error": f"Invalid plan: {plan}"}
                 plan = "free"
 
-            # 2. Crear Tenant via Comando Maestro (Sustituye el insert genérico)
-            # Esto genera el tenant_id y la api_key oficialmente en el Sentinel
+            # 2. Crear Tenant via Comando Maestro
             res_tenant_cmd = await data_service.execute_custom(
                 "system.tenant.create", 
                 {"name": business_name, "plan": plan}
             )
             
-            if not res_tenant_cmd.success or not res_tenant_cmd.data:
-                return {"success": False, "error": res_tenant_cmd.message or "Failed to create tenant"}
+            tenant_id = None
+            tenant_api_key = None
 
-            tenant_data = res_tenant_cmd.data
-            # DEBUG LOG: Ver exactamente qué llega del servidor
-            import logging
-            logger = logging.getLogger("EvolutionMotor.Auth")
-            logger.info(f"[DEBUG REGISTER] Raw tenant_data: {tenant_data} | Type: {type(tenant_data)}")
-
-            if not isinstance(tenant_data, dict):
-                return {"success": False, "error": f"Unexpected tenant data format: {type(tenant_data)}"}
-
-            # Handle Sentinel 'Teaching Moments' or specific error responses
-            if tenant_data.get("status") == "teaching_moment":
-                lesson = tenant_data.get("lesson", {})
-                error_msg = lesson.get("explanation") or "Error al crear el tenant."
-                hint = lesson.get("actionable_fix", {}).get("hint", "")
-                return {"success": False, "error": f"{error_msg} {hint}".strip()}
-
-            tenant_id = tenant_data.get("tenant_id")
-            tenant_api_key = tenant_data.get("api_key")
+            if res_tenant_cmd.success and res_tenant_cmd.data:
+                tenant_data = res_tenant_cmd.data
+                if isinstance(tenant_data, dict) and "tenant_id" in tenant_data:
+                    tenant_id = tenant_data["tenant_id"]
+                    tenant_api_key = tenant_data["api_key"]
+            else:
+                # El Tenant podría existir ya. Verificamos si es un Tenant huérfano.
+                res_exists = await data_service.query("tenants", filters={"name": business_name})
+                if res_exists.success and res_exists.data:
+                    existing_tenant = res_exists.data[0]
+                    tid = existing_tenant["id"]
+                    
+                    # Verificamos si tiene usuarios asociados
+                    res_users = await data_service.query("users", filters={"tenant_id": tid})
+                    if not res_users.data:
+                        # Es un Tenant huérfano. Lo recuperamos.
+                        tenant_id = tid
+                        res_key = await data_service.query("tenants", filters={"id": tid})
+                        tenant_api_key = res_key.data[0].get("api_key") if res_key.data else None
+                        
+                        import logging
+                        logging.getLogger("EvolutionMotor.Auth").info(f"Recovering orphaned tenant: {business_name} ({tenant_id})")
+                    else:
+                        # El tenant existe y ya tiene dueño.
+                        return {"success": False, "error": "Este nombre de negocio ya está registrado por otro usuario."}
+                else:
+                    return {"success": False, "error": res_tenant_cmd.message or "Failed to create tenant"}
 
             if not tenant_id or not tenant_api_key:
-                logger.error(f"[DEBUG REGISTER] Missing keys. tenant_id: {tenant_id}, api_key: {tenant_api_key}")
-                return {"success": False, "error": "Tenant created but missing ID or API Key in response"}
+                return {"success": False, "error": "Error crítico al provisionar el espacio de trabajo."}
 
             webhook_secret = secrets.token_urlsafe(32)
 
-            # 3. Onboarding Automatizado (DEBE ir antes que el usuario para definir esquemas)
+            # 3. Onboarding Automatizado
             await self._apply_onboarding_blueprint(tenant_id, tenant_api_key, business_name)
 
-            # 4. Crear Usuario Administrador vinculado al nuevo Tenant
+            # 4. Crear Usuario Administrador
             user_id = str(uuid.uuid4())
             password_hash = self._hash_password(password)
 
