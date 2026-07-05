@@ -135,6 +135,43 @@ class CoreCommandHandler:
             )
 
     @command(
+        name="user.delete_employee",
+        description="Removes an employee from the tenant.",
+        params_model={"user_id": "string"},
+    )
+    async def delete_employee_account(
+        self,
+        data_service: DataServiceInterface,
+        context: TenantContext,
+        user_id: str,
+    ) -> ServiceResponse:
+        try:
+            # SECURITY: Only the admin (owner) can delete users
+            if context.role != "admin":
+                return ServiceResponse.error_res(
+                    "Permission denied. Only the business owner can delete users.", "UNAUTHORIZED"
+                )
+
+            # Verify the user belongs to this tenant before deleting
+            res_user = await data_service.query(
+                "users", filters={"id": user_id, "tenant_id": str(context.tenant_id)}
+            )
+            if not res_user.success or not res_user.data:
+                return ServiceResponse.error_res(
+                    "User not found in this tenant.", "USER_NOT_FOUND"
+                )
+
+            await data_service.delete("users", record_id=user_id)
+
+            return ServiceResponse.success_res(
+                message=f"Employee removed successfully."
+            )
+        except Exception as e:
+            return ServiceResponse.error_res(
+                f"Error deleting employee: {str(e)}", "AUTH_DELETE_ERROR"
+            )
+
+    @command(
         name="core.get_profile",
         description="Returns current user and business profile.",
         params_model={},

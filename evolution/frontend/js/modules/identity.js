@@ -237,8 +237,22 @@ Verify Token: ${token}`);
     },
 
     async removeUser(userId) {
-        UI.toast('Requiere implementación de user.delete en backend', 'warning');
-    }
+        if (!confirm('¿Estás seguro de eliminar a este usuario? Esta acción es irreversible.')) return;
+        UI.showLoading();
+        try {
+            const res = await API.execute('user.delete_employee', { user_id: userId });
+            if (res.status === 'success') {
+                UI.toast('Usuario eliminado correctamente', 'success');
+                await this.loadEmployees();
+            } else {
+                throw new Error(res.message || 'Error al eliminar usuario');
+            }
+        } catch (e) {
+            UI.toast(e.message, 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    },
 };
 
 window.IdentityModule = IdentityModule;
