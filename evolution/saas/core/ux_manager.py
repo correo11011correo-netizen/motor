@@ -49,9 +49,9 @@ class UXManager:
             allowed_panels = list(self.available_panels.keys())
         elif user_role == "employee":
             # Los empleados solo ven ventas e inventario por defecto
-            allowed_panels = ["pos", "stock"]
+            allowed_panels = ["sales", "stock"]
         else:
-            allowed_panels = ["pos"]
+            allowed_panels = ["sales"]
 
         # 2. Lógica de Planes (Limitaciones Comerciales)
         # Si el plan es 'basic', eliminamos paneles avanzados
