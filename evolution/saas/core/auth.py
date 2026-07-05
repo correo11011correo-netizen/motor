@@ -97,6 +97,7 @@ class AuthService:
         self, tenant_id: uuid.UUID, business_name: str
     ) -> None:
         try:
+            # 1. Bot Settings
             await data_service.insert(
                 "bot_settings",
                 {
@@ -106,8 +107,35 @@ class AuthService:
                     "is_global_active": True,
                 },
             )
-        except Exception:
-            pass
+
+            # 2. Datos Base (JSONB Mínimo)
+            # Creamos un set de productos iniciales para que el cliente vea el panel funcionando
+            initial_products = [
+                {"id": uuid.uuid4(), "tenant_id": tenant_id, "codigo": "PROD001", "nombre": "Producto Ejemplo 1", "precio": 10.0, "stock": 100, "categoria": "General"},
+                {"id": uuid.uuid4(), "tenant_id": tenant_id, "codigo": "PROD002", "nombre": "Producto Ejemplo 2", "precio": 25.5, "stock": 50, "categoria": "General"},
+            ]
+
+            for prod in initial_products:
+                await data_service.insert("products", prod)
+                
+            # Crear una venta de prueba
+            await data_service.insert(
+                "sales",
+                {
+                    "id": uuid.uuid4(),
+                    "tenant_id": tenant_id,
+                    "fecha": datetime.datetime.utcnow().isoformat(),
+                    "total": 35.5,
+                    "items": [
+                        {"codigo": "PROD001", "qty": 1, "price": 10.0},
+                        {"codigo": "PROD002", "qty": 1, "price": 25.5},
+                    ]
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Onboarding blueprint error for {tenant_id}: {e}")
+
 
     async def authenticate(self, email: str, password: str) -> Optional[Dict[str, Any]]:
         password_hash = self._hash_password(password)
