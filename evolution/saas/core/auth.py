@@ -39,7 +39,7 @@ class AuthService:
                     return {"success": False, "error": f"Invalid plan: {plan}"}
                 plan = "free"
 
-            tenant_id = uuid.uuid4()
+            tenant_id = str(uuid.uuid4())
             webhook_secret = secrets.token_urlsafe(32)
 
             # Insert Tenant
@@ -55,7 +55,7 @@ class AuthService:
             if not res_tenant.success:
                 return {"success": False, "error": res_tenant.message}
 
-            user_id = uuid.uuid4()
+            user_id = str(uuid.uuid4())
             password_hash = self._hash_password(password)
 
             res_user = await data_service.insert(
@@ -74,7 +74,7 @@ class AuthService:
             # Caja chica inicial
             await data_service.insert(
                 "cash_box",
-                {"id": uuid.uuid4(), "tenant_id": tenant_id, "abierta": False},
+                {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "abierta": False},
             )
 
             await self._apply_onboarding_blueprint(tenant_id, business_name)
@@ -84,7 +84,7 @@ class AuthService:
                 "success": True,
                 "data": {
                     "token": token,
-                    "tenant_id": str(tenant_id),
+                    "tenant_id": tenant_id,
                     "webhook_secret": webhook_secret,
                     "user": {
                         "username": email,
@@ -98,7 +98,7 @@ class AuthService:
             return {"success": False, "error": str(e)}
 
     async def _apply_onboarding_blueprint(
-        self, tenant_id: uuid.UUID, business_name: str
+        self, tenant_id: str, business_name: str
     ) -> None:
         try:
             # 1. Bot Settings
@@ -115,8 +115,8 @@ class AuthService:
             # 2. Datos Base (JSONB Mínimo)
             # Creamos un set de productos iniciales para que el cliente vea el panel funcionando
             initial_products = [
-                {"id": uuid.uuid4(), "tenant_id": tenant_id, "codigo": "PROD001", "nombre": "Producto Ejemplo 1", "precio": 10.0, "stock": 100, "categoria": "General"},
-                {"id": uuid.uuid4(), "tenant_id": tenant_id, "codigo": "PROD002", "nombre": "Producto Ejemplo 2", "precio": 25.5, "stock": 50, "categoria": "General"},
+                {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "codigo": "PROD001", "nombre": "Producto Ejemplo 1", "precio": 10.0, "stock": 100, "categoria": "General"},
+                {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "codigo": "PROD002", "nombre": "Producto Ejemplo 2", "precio": 25.5, "stock": 50, "categoria": "General"},
             ]
 
             for prod in initial_products:
@@ -126,7 +126,7 @@ class AuthService:
             await data_service.insert(
                 "sales",
                 {
-                    "id": uuid.uuid4(),
+                    "id": str(uuid.uuid4()),
                     "tenant_id": tenant_id,
                     "fecha": datetime.datetime.utcnow().isoformat(),
                     "total": 35.5,
