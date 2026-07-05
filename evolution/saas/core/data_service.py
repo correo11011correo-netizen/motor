@@ -23,7 +23,7 @@ class SentinelDataService(DataServiceInterface):
                 params["limit"] = limit
 
             res = await sentinel_client.execute("data.query", params)
-            return ServiceResponse.success_res(data=res)
+            return ServiceResponse.success_res(message=f"Query executed successfully for {entity}", data=res)
         except Exception as e:
             logger.error(f"Query failed for {entity}: {e}")
             return ServiceResponse.error_res(str(e), "QUERY_ERROR")
@@ -71,7 +71,7 @@ class SentinelDataService(DataServiceInterface):
         """
         try:
             result = await sentinel_client.execute(command, params)
-            return ServiceResponse.success_res(data=result)
+            return ServiceResponse.success_res(message=f"Command {command} executed successfully", data=result)
         except Exception as e:
             logger.error(f"Custom command {command} failed: {e}")
             return ServiceResponse.error_res(str(e), "CUSTOM_EXEC_ERROR")
@@ -92,33 +92,35 @@ class SentinelDataService(DataServiceInterface):
         except Exception as e:
             logger.error(f"Redis SET failed for {key}: {e}")
             return ServiceResponse.error_res(str(e), "REDIS_SET_ERROR")
+async def redis_get(self, key: str) -> ServiceResponse:
+    try:
+        res = await sentinel_client.execute("redis.get", {"key": key})
+        return ServiceResponse.success_res(message=f"Key {key} retrieved from Redis", data=res)
+    except Exception as e:
+        logger.error(f"Redis GET failed for {key}: {e}")
+        return ServiceResponse.error_res(str(e), "REDIS_GET_ERROR")
 
-    async def redis_get(self, key: str) -> ServiceResponse:
-        try:
-            res = await sentinel_client.execute("redis.get", {"key": key})
-            return ServiceResponse.success_res(data=res)
-        except Exception as e:
-            logger.error(f"Redis GET failed for {key}: {e}")
-            return ServiceResponse.error_res(str(e), "REDIS_GET_ERROR")
+async def redis_delete(self, key: str) -> ServiceResponse:
+    try:
+        res = await sentinel_client.execute(
+            "redis.del", {"key": key}
+        )
+        return ServiceResponse.success_res(
+            message=f"Key {key} deleted from Redis.",
+            data=res,
+        )
+    except Exception as e:
+        logger.error(f"Redis DELETE failed for {key}: {e}")
+        return ServiceResponse.error_res(str(e), "REDIS_DELETE_ERROR")
 
-    async def redis_delete(self, key: str) -> ServiceResponse:
-        try:
-            res = await sentinel_client.execute("redis.del", {"key": key})
-            return ServiceResponse.success_res(
-                data=res, message=f"Key {key} deleted from Redis."
-            )
-        except Exception as e:
-            logger.error(f"Redis DEL failed for {key}: {e}")
-            return ServiceResponse.error_res(str(e), "REDIS_DEL_ERROR")
-
-    async def redis_exists(self, key: str) -> ServiceResponse:
-        try:
-            res = await sentinel_client.execute("redis.exists", {"key": key})
-            # Sentinel returns 1 or 0 for exists
-            return ServiceResponse.success_res(data=bool(res))
-        except Exception as e:
-            logger.error(f"Redis EXISTS failed for {key}: {e}")
-            return ServiceResponse.error_res(str(e), "REDIS_EXISTS_ERROR")
+async def redis_exists(self, key: str) -> ServiceResponse:
+    try:
+        res = await sentinel_client.execute("redis.exists", {"key": key})
+        # Sentinel returns 1 or 0 for exists
+        return ServiceResponse.success_res(message=f"Check existence for {key} complete", data=bool(res))
+    except Exception as e:
+        logger.error(f"Redis EXISTS failed for {key}: {e}")
+        return ServiceResponse.error_res(str(e), "REDIS_EXISTS_ERROR")
 
 
 # Singleton for the motor
