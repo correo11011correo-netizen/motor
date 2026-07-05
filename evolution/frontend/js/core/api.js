@@ -14,11 +14,11 @@ const API = {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            // El endpoint maestro es /exec?cmd=...
-            const response = await fetch(`${API_BASE}/exec?cmd=${command}`, {
+            // Updated to match /admin/internal/control/execute and send cmd in body
+            const response = await fetch(`${API_BASE}/admin/internal/control/execute`, {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify(params)
+                body: JSON.stringify({ cmd: command, params: params })
             });
 
             if (!response.ok) {
