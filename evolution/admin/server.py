@@ -404,7 +404,24 @@ async def set_theme(tenant_id: str, request: ThemeRequest):
     return await execute_sentinel_command("sdui.set_theme", params)
 
 
+@app.post("/admin/api/execute")
+async def execute_custom_command(request: Request):
+    """
+    Endpoint genérico para ejecutar cualquier comando maestro.
+    Recibe { "cmd": "comando.nombre", "params": { ... } }
+    """
+    body = await request.json()
+    cmd = body.get("cmd")
+    params = body.get("params", {})
+
+    if not cmd:
+        raise HTTPException(status_code=400, detail="El parámetro 'cmd' es obligatorio")
+
+    return await execute_sentinel_command(cmd, params)
+
+
 # --- ENDPOINTS DE AUDITORÍA Y SISTEMA ---
+
 
 
 @app.get("/admin/api/reports")

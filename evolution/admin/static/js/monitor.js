@@ -256,7 +256,7 @@ async function createTenant() {
 async function refreshTenants() {
     try {
         const result = await apiCall('/api/tenants/list');
-        const tenants = Array.isArray(result) ? result : (result.tenants || []);
+        const tenants = Array.isArray(result) ? result : (result.result || result.tenants || []);
         elements.tenantList.innerHTML = '';
 
         tenants.forEach(t => {
