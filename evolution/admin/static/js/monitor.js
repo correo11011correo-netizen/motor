@@ -625,9 +625,6 @@ function init() {
     elements.btnSnapshot.onclick = createSnapshot;
     elements.btnRestore.onclick = restoreSnapshot;
 
-    // Reportes
-    elements.btnRefreshReports.onclick = refreshReports;
-
     addLog('Evolution Control Center Inicializado. Esperando comandos...', 'system');
 }
 
