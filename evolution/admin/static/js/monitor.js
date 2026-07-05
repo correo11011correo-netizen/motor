@@ -642,5 +642,29 @@ async function extendedInit() {
     techElements.btnAddRecord.onclick = addJsonRecord;
 
     await populateTenantSelect();
+    await loadConfig();
+}
+init = extendedInit;
+    // Infraestructura
+    elements.btnSnapshot.onclick = createSnapshot;
+    elements.btnRestore.onclick = restoreSnapshot;
+
+    addLog('Evolution Control Center Inicializado. Esperando comandos...', 'system');
+}
+
+// Ejecutar init al cargar la página
+window.onload = init;
+
+// Modificar la función init() para incluir la nueva lógica
+const originalInit = init;
+async function extendedInit() {
+    await originalInit();
+
+    // Setup de Event Listeners Técnicos
+    techElements.btnLoadTech.onclick = loadTechnicalDetails;
+    techElements.btnSaveBlueprint.onclick = saveBlueprint;
+    techElements.btnAddRecord.onclick = addJsonRecord;
+
+    await populateTenantSelect();
 }
 init = extendedInit;
