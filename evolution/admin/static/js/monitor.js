@@ -88,6 +88,9 @@ function addLog(message, type = 'info') {
 }
 
 async function apiCall(endpoint, method = 'GET', body = null) {
+    const loader = document.getElementById('global-loader');
+    if (loader) loader.style.display = 'flex';
+
     try {
         const finalEndpoint = endpoint.startsWith('/admin') ? endpoint : `/admin${endpoint}`;
         const options = {
@@ -125,8 +128,9 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 
         return data;
     } catch (err) {
-        // No logueamos aquí para no duplicar mensajes en las funciones que llaman a apiCall
         throw err;
+    } finally {
+        if (loader) loader.style.display = 'none';
     }
 }
 
