@@ -245,15 +245,23 @@ class AuthService:
                 return None
 
             # 2. Verificar la contraseña en el servidor
-            # El resultado de data.query es una fila de 'generic_data', los campos están en 'data'
             user_row = res_user.data[0]
             user_data = user_row.get("data", {})
             db_password_hash = user_data.get("password_hash")
 
+            # DEBUG LOGS
+            import logging
+            logger = logging.getLogger("EvolutionMotor.Auth")
+            logger.info(f"[AUTH_DEBUG] Attempting login for: {email}")
+            logger.info(f"[AUTH_DEBUG] Input Hash: {input_password_hash}")
+            logger.info(f"[AUTH_DEBUG] DB Hash: {db_password_hash}")
+
             if not db_password_hash or db_password_hash != input_password_hash:
+                logger.warning(f"[AUTH_DEBUG] Hash mismatch for {email}")
                 return None
 
             tenant_id = user_row["tenant_id"]
+    ...
 
             # 3. Recuperar datos del tenant para el token
             res_tenant = await data_service.query("tenants", filters={"id": tenant_id})
