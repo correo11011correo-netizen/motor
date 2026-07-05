@@ -109,10 +109,11 @@ class AuthService:
         self, tenant_id: str, tenant_api_key: str, business_name: str
     ) -> None:
         try:
-            # 1. DEFINICIÓN DE ESQUEMA (Usando el Token del Tenant)
-            # Para evitar el 404 del admin, usamos el token recién creado del tenant
-            # a través de una llamada directa al SentinelClient si es posible, 
-            # o pasando la clave de impersonación.
+            # 1. Registrar el tenant en el cliente local para usar su Token
+            sentinel_client.add_tenant(tenant_id, tenant_api_key)
+
+            # 2. DEFINICIÓN DE ESQUEMA (Usando la API KEY del nuevo tenant)
+            # Pasamos el tenant_id como argumento al DataService, no en el body.
             await data_service.execute_custom(
                 "schema.define",
                 {
@@ -141,12 +142,12 @@ class AuthService:
                             "monto_inicial": "float",
                             "ultima_actualizacion": "string",
                         },
-                    },
-                    "impersonate_tid": tenant_id
-                }
+                    }
+                },
+                tenant_id=tenant_id
             )
 
-            # 2. Bot Settings
+            # 3. Bot Settings
             await data_service.insert(
                 "bot_settings",
                 {
@@ -157,7 +158,7 @@ class AuthService:
                 },
             )
 
-            # 3. Datos Base (Seed Data)
+            # 4. Datos Base (Seed Data)
             initial_products = [
                 {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "codigo": "PROD001", "nombre": "Producto Ejemplo 1", "precio": 10.0, "stock": 100, "categoria": "General"},
                 {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "codigo": "PROD002", "nombre": "Producto Ejemplo 2", "precio": 25.5, "stock": 50, "categoria": "General"},

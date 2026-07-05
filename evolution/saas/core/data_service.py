@@ -65,12 +65,14 @@ class SentinelDataService(DataServiceInterface):
             logger.error(f"Delete failed for {entity} {record_id}: {e}")
             return ServiceResponse.error_res(str(e), "DELETE_ERROR")
 
-    async def execute_custom(self, command: str, params: Dict) -> ServiceResponse:
+    async def execute_custom(
+        self, command: str, params: Dict, tenant_id: str | None = None
+    ) -> ServiceResponse:
         """
         Executes a specialized Sentinel command (e.g., aggregations, complex updates).
         """
         try:
-            result = await sentinel_client.execute(command, params)
+            result = await sentinel_client.execute(command, params, tenant_id=tenant_id)
             return ServiceResponse.success_res(message=f"Command {command} executed successfully", data=result)
         except Exception as e:
             logger.error(f"Custom command {command} failed: {e}")
