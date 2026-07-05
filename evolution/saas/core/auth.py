@@ -85,7 +85,7 @@ class AuthService:
             # 5. Caja chica inicial
             await data_service.insert(
                 "cash_box",
-                {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "abierta": False},
+                {"abierta": "false"},
                 tenant_id=tenant_id
             )
 
@@ -162,8 +162,9 @@ class AuthService:
                     "tenant_id": tenant_id,
                     "bot_name": f"Asistente de {business_name}",
                     "welcome": f"Hola! Bienvenido a {business_name}",
-                    "is_global_active": True,
+                    "is_global_active": "true",
                 },
+                tenant_id=tenant_id
             )
 
             # 4. Datos Base (Seed Data)
@@ -173,7 +174,7 @@ class AuthService:
             ]
 
             for prod in initial_products:
-                await data_service.insert("products", prod)
+                await data_service.insert("products", prod, tenant_id=tenant_id)
                 
             await data_service.insert(
                 "employees",
@@ -184,7 +185,8 @@ class AuthService:
                     "rol": "Admin",
                     "salario": 0.0,
                     "fecha_ingreso": datetime.datetime.utcnow().isoformat(),
-                }
+                },
+                tenant_id=tenant_id
             )
 
             await data_service.insert(
@@ -199,7 +201,8 @@ class AuthService:
                         {"codigo": "PROD002", "qty": 1, "price": 25.5},
                     ],
                     "employee_id": "SYSTEM"
-                }
+                },
+                tenant_id=tenant_id
             )
             
         except Exception as e:
