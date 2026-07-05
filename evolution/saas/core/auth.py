@@ -162,8 +162,8 @@ class AuthService:
             )
             return {
                 "token": token,
-                "tenant_id": tenant["id"],
-                "user_id": user["id"],
+                "tenant_id": str(tenant["id"]),
+                "user_id": str(user["id"]),
                 "user": {
                     "username": user["email"],
                     "business_name": tenant["name"],
