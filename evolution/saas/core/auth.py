@@ -261,7 +261,6 @@ class AuthService:
                 return None
 
             tenant_id = user_row["tenant_id"]
-    ...
 
             # 3. Recuperar datos del tenant para el token
             res_tenant = await data_service.query("tenants", filters={"id": tenant_id})
