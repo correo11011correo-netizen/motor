@@ -231,24 +231,29 @@ class AuthService:
 
 
     async def authenticate(self, email: str, password: str) -> Optional[Dict[str, Any]]:
-        password_hash = self._hash_password(password)
+        input_password_hash = self._hash_password(password)
 
         try:
-            # IMPORTANT: We must query users GLOBALLY (ignore_tenant=True).
-            # Otherwise, it filters by the current context (which is SYSTEM during login),
-            # and it will never find users created in specific tenants.
+            # 1. Buscar el usuario únicamente por email (Globalmente)
             res_user = await data_service.query(
                 "users", 
-                filters={"email": email, "password_hash": password_hash},
+                filters={"email": email},
                 ignore_tenant=True
             )
 
             if not res_user.success or not res_user.data:
                 return None
 
+            # 2. Verificar la contraseña en el servidor
             user = res_user.data[0]
+            db_password_hash = user.get("password_hash")
+
+            if not db_password_hash or db_password_hash != input_password_hash:
+                return None
+
             tenant_id = user["tenant_id"]
 
+            # 3. Recuperar datos del tenant para el token
             res_tenant = await data_service.query("tenants", filters={"id": tenant_id})
 
             if not res_tenant.success or not res_tenant.data:
