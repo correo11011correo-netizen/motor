@@ -146,7 +146,7 @@ class AuthService:
                             "employee_id": "string",
                         },
                         "cash_box": {
-                            "abierta": "bool",
+                            "abierta": "text",
                             "monto_inicial": "float",
                             "ultima_actualizacion": "string",
                         },
