@@ -275,15 +275,22 @@ style.innerHTML = `
     .toast-error { background: var(--color-error); }
     .fade-out { opacity: 0; transition: opacity 0.5s ease; }
     @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    
     .global-loader {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(255,255,255,0.7); display: flex; align-items: center;
-        justify-content: center; z-index: 3000;
+        background: rgba(0,0,0,0.7); display: flex; align-items: center;
+        justify-content: center; z-index: 3000; font-family: monospace;
+    }
+    .loader-content {
+        display: flex; flex-direction: column; align-items: center; gap: 15px;
     }
     .spinner {
-        width: 40px; height: 40px; border: 4px solid var(--color-border);
-        border-top: 4px solid var(--color-primary); border-radius: 50%;
+        width: 50px; height: 50px; border: 5px solid #333;
+        border-top: 5px solid var(--color-primary); border-radius: 50%;
         animation: spin 1s linear infinite;
+    }
+    .loader-text {
+        color: white; font-size: 0.9rem; letter-spacing: 1px;
     }
     @keyframes spin { 100% { transform: rotate(360deg); } }
 `;
