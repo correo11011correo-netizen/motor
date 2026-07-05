@@ -585,7 +585,28 @@ async function executeCustomCommand(cmd, params = null) {
     }
 }
 
+async function loadConfig() {
+    addLog('Cargando configuración persistente...', 'info');
+    try {
+        const config = await apiCall('/api/config');
+        if (config.url) {
+            elements.dbUrl.value = config.url;
+            addLog('Configuración recuperada. Validando conexión...', 'success');
+            
+            // Intentar restablecer la conexión y cargar datos automáticamente
+            await testConnection();
+            await refreshTenants();
+            await refreshPlans();
+        } else {
+            addLog('No se encontró configuración guardada.', 'info');
+        }
+    } catch (err) {
+        addLog('Error cargando configuración inicial: ' + err.message, 'error');
+    }
+}
+
 // --- INICIALIZACIÓN ---
+
 
 function init() {
     // Configuración & Salud
