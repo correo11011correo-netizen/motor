@@ -14,11 +14,11 @@ class SentinelDataService(DataServiceInterface):
     """
 
     async def query(
-        self, entity: str, filters: Dict | None = None, limit: int | None = None
+        self, entity: str, filters: Dict | None = None, limit: int | None = None, ignore_tenant: bool = False
     ) -> ServiceResponse:
         try:
             # We use a generic 'data.query' command in Sentinel
-            params = {"entity": entity, "filters": filters or {}}
+            params = {"entity": entity, "filters": filters or {}, "ignore_tenant": ignore_tenant}
             if limit:
                 params["limit"] = limit
 
