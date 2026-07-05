@@ -61,7 +61,10 @@ class AuthService:
 
             webhook_secret = secrets.token_urlsafe(32)
 
-            # 3. Crear Usuario Administrador vinculado al nuevo Tenant
+            # 3. Onboarding Automatizado (DEBE ir antes que el usuario para definir esquemas)
+            await self._apply_onboarding_blueprint(tenant_id, tenant_api_key, business_name)
+
+            # 4. Crear Usuario Administrador vinculado al nuevo Tenant
             user_id = str(uuid.uuid4())
             password_hash = self._hash_password(password)
 
@@ -74,18 +77,17 @@ class AuthService:
                     "role": "admin",
                     "tenant_id": tenant_id,
                 },
+                tenant_id=tenant_id
             )
             if not res_user.success:
                 return {"success": False, "error": res_user.message}
 
-            # 4. Caja chica inicial
+            # 5. Caja chica inicial
             await data_service.insert(
                 "cash_box",
                 {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "abierta": False},
+                tenant_id=tenant_id
             )
-
-            # 5. Onboarding Automatizado (Usando la API KEY del nuevo tenant)
-            await self._apply_onboarding_blueprint(tenant_id, tenant_api_key, business_name)
 
             token = self.create_token(tenant_id, user_id, "admin", plan)
             return {
@@ -118,6 +120,12 @@ class AuthService:
                 "schema.define",
                 {
                     "schema": {
+                        "users": {
+                            "email": "string",
+                            "password_hash": "string",
+                            "role": "string",
+                            "tenant_id": "string",
+                        },
                         "products": {
                             "codigo": "string",
                             "nombre": "string",

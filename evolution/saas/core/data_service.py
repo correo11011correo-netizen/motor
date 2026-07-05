@@ -28,10 +28,12 @@ class SentinelDataService(DataServiceInterface):
             logger.error(f"Query failed for {entity}: {e}")
             return ServiceResponse.error_res(str(e), "QUERY_ERROR")
 
-    async def insert(self, entity: str, data: Dict) -> ServiceResponse:
+    async def insert(
+        self, entity: str, data: Dict, tenant_id: str | None = None
+    ) -> ServiceResponse:
         try:
             res = await sentinel_client.execute(
-                "data.insert", {"entity": entity, "data": data}
+                "data.insert", {"entity": entity, "data": data}, tenant_id=tenant_id
             )
             # Sentinel returns the created record or its ID
             return ServiceResponse.success_res(
