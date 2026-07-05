@@ -39,22 +39,22 @@ class AuthService:
                     return {"success": False, "error": f"Invalid plan: {plan}"}
                 plan = "free"
 
-            tenant_id = str(uuid.uuid4())
+            # 2. Crear Tenant via Comando Maestro (Sustituye el insert genérico)
+            # Esto genera el tenant_id y la api_key oficialmente en el Sentinel
+            res_tenant_cmd = await data_service.execute_custom(
+                "system.tenant.create", 
+                {"name": business_name, "plan": plan}
+            )
+            
+            if not res_tenant_cmd.success:
+                return {"success": False, "error": res_tenant_cmd.message}
+
+            tenant_data = res_tenant_cmd.data
+            tenant_id = tenant_data["tenant_id"]
+            tenant_api_key = tenant_data["api_key"]
             webhook_secret = secrets.token_urlsafe(32)
 
-            # Insert Tenant
-            res_tenant = await data_service.insert(
-                "tenants",
-                {
-                    "id": tenant_id,
-                    "name": business_name,
-                    "webhook_secret": webhook_secret,
-                    "plan": plan,
-                },
-            )
-            if not res_tenant.success:
-                return {"success": False, "error": res_tenant.message}
-
+            # 3. Crear Usuario Administrador vinculado al nuevo Tenant
             user_id = str(uuid.uuid4())
             password_hash = self._hash_password(password)
 
@@ -71,13 +71,14 @@ class AuthService:
             if not res_user.success:
                 return {"success": False, "error": res_user.message}
 
-            # Caja chica inicial
+            # 4. Caja chica inicial
             await data_service.insert(
                 "cash_box",
                 {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "abierta": False},
             )
 
-            await self._apply_onboarding_blueprint(tenant_id, business_name)
+            # 5. Onboarding Automatizado (Usando la API KEY del nuevo tenant)
+            await self._apply_onboarding_blueprint(tenant_id, tenant_api_key, business_name)
 
             token = self.create_token(tenant_id, user_id, "admin", plan)
             return {
@@ -98,11 +99,13 @@ class AuthService:
             return {"success": False, "error": str(e)}
 
     async def _apply_onboarding_blueprint(
-        self, tenant_id: str, business_name: str
+        self, tenant_id: str, tenant_api_key: str, business_name: str
     ) -> None:
         try:
-            # 1. DEFINICIÓN DE ESQUEMA (Paso Crítico)
-            # Definimos la estructura base para que el tenant pueda empezar a operar inmediatamente
+            # 1. DEFINICIÓN DE ESQUEMA (Usando el Token del Tenant)
+            # Para evitar el 404 del admin, usamos el token recién creado del tenant
+            # a través de una llamada directa al SentinelClient si es posible, 
+            # o pasando la clave de impersonación.
             await data_service.execute_custom(
                 "schema.define",
                 {
@@ -131,7 +134,8 @@ class AuthService:
                             "monto_inicial": "float",
                             "ultima_actualizacion": "string",
                         },
-                    }
+                    },
+                    "impersonate_tid": tenant_id
                 }
             )
 
@@ -147,7 +151,6 @@ class AuthService:
             )
 
             # 3. Datos Base (Seed Data)
-            # Productos iniciales
             initial_products = [
                 {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "codigo": "PROD001", "nombre": "Producto Ejemplo 1", "precio": 10.0, "stock": 100, "categoria": "General"},
                 {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "codigo": "PROD002", "nombre": "Producto Ejemplo 2", "precio": 25.5, "stock": 50, "categoria": "General"},
@@ -156,7 +159,6 @@ class AuthService:
             for prod in initial_products:
                 await data_service.insert("products", prod)
                 
-            # Empleado inicial (el admin)
             await data_service.insert(
                 "employees",
                 {
@@ -169,7 +171,6 @@ class AuthService:
                 }
             )
 
-            # Venta de prueba para validar el flujo
             await data_service.insert(
                 "sales",
                 {
