@@ -245,13 +245,15 @@ class AuthService:
                 return None
 
             # 2. Verificar la contraseña en el servidor
-            user = res_user.data[0]
-            db_password_hash = user.get("password_hash")
+            # El resultado de data.query es una fila de 'generic_data', los campos están en 'data'
+            user_row = res_user.data[0]
+            user_data = user_row.get("data", {})
+            db_password_hash = user_data.get("password_hash")
 
             if not db_password_hash or db_password_hash != input_password_hash:
                 return None
 
-            tenant_id = user["tenant_id"]
+            tenant_id = user_row["tenant_id"]
 
             # 3. Recuperar datos del tenant para el token
             res_tenant = await data_service.query("tenants", filters={"id": tenant_id})
@@ -260,18 +262,23 @@ class AuthService:
                 return None
 
             tenant = res_tenant.data[0]
+            # El tenant podría ser una entidad genérica o una tabla real. 
+            # Intentamos obtener el plan de 'data' o de la raíz.
+            tenant_data = tenant.get("data", {}) if isinstance(tenant.get("data"), dict) else {}
+            plan = tenant_data.get("plan") or tenant.get("plan", "free")
+
             token = self.create_token(
-                tenant["id"], user["id"], user["role"], tenant["plan"]
+                tenant["id"], user_row["id"], user_data.get("role", "user"), plan
             )
             return {
                 "token": token,
                 "tenant_id": str(tenant["id"]),
-                "user_id": str(user["id"]),
+                "user_id": str(user_row["id"]),
                 "user": {
-                    "username": user["email"],
-                    "business_name": tenant["name"],
-                    "role": user["role"],
-                    "plan": tenant["plan"],
+                    "username": user_data.get("email", email),
+                    "business_name": tenant_data.get("name") or tenant.get("name", "Unknown"),
+                    "role": user_data.get("role", "user"),
+                    "plan": plan,
                 },
             }
         except Exception:
