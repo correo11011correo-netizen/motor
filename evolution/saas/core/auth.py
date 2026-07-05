@@ -58,6 +58,13 @@ class AuthService:
             if not isinstance(tenant_data, dict):
                 return {"success": False, "error": f"Unexpected tenant data format: {type(tenant_data)}"}
 
+            # Handle Sentinel 'Teaching Moments' or specific error responses
+            if tenant_data.get("status") == "teaching_moment":
+                lesson = tenant_data.get("lesson", {})
+                error_msg = lesson.get("explanation") or "Error al crear el tenant."
+                hint = lesson.get("actionable_fix", {}).get("hint", "")
+                return {"success": False, "error": f"{error_msg} {hint}".strip()}
+
             tenant_id = tenant_data.get("tenant_id")
             tenant_api_key = tenant_data.get("api_key")
 
