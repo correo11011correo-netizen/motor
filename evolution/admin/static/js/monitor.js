@@ -255,25 +255,36 @@ async function createTenant() {
 
 async function refreshTenants() {
     try {
+        addLog('Sincronizando lista de tenants...', 'info');
         const result = await apiCall('/api/tenants/list');
+        console.log('API Response /api/tenants/list:', result);
+        
         const tenants = Array.isArray(result) ? result : (result.result || result.tenants || []);
+        console.log('Parsed tenants list:', tenants);
+        
         elements.tenantList.innerHTML = '';
+
+        if (tenants.length === 0) {
+            elements.tenantList.innerHTML = '<tr><td colspan="4">No hay tenants registrados.</td></tr>';
+            addLog('No se encontraron tenants.', 'info');
+            return;
+        }
 
         tenants.forEach(t => {
             const row = document.createElement('tr');
+            const tid = t.tenant_id || t.id;
             row.innerHTML = `
-                <td>${t.tenant_id || t.id}</td>
+                <td>${tid}</td>
                 <td>${t.name}</td>
                 <td>${t.plan || 'default'}</td>
-                <td><button class="btn btn-secondary btn-small" onclick="setPlan('${t.tenant_id}')">Plan</button></td>
+                <td><button class="btn btn-secondary btn-small" onclick="setPlan('${tid}')">Plan</button></td>
             `;
             elements.tenantList.appendChild(row);
         });
-        if (tenants.length === 0) {
-            elements.tenantList.innerHTML = '<tr><td colspan="4">No hay tenants registrados.</td></tr>';
-        }
+        addLog(`Cargados ${tenants.length} tenants correctamente.`, 'success');
     } catch (err) {
-        addLog('Error al listar tenants', 'error');
+        addLog('Error al listar tenants: ' + err.message, 'error');
+        console.error('Error in refreshTenants:', err);
     }
 }
 
