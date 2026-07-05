@@ -114,8 +114,7 @@ class AuthService:
             # 1. Registrar el tenant en el cliente local para usar su Token
             sentinel_client.add_tenant(tenant_id, tenant_api_key)
 
-            # 2. DEFINICIÓN DE ESQUEMA (Usando la API KEY del nuevo tenant)
-            # Pasamos el tenant_id como argumento al DataService, no en el body.
+            # 2. DEFINICIÓN DE ESQUEMA (Sincronizado con tipos permitidos de Sentinel)
             await data_service.execute_custom(
                 "schema.define",
                 {
@@ -146,10 +145,15 @@ class AuthService:
                             "employee_id": "string",
                         },
                         "cash_box": {
-                            "abierta": "text",
+                            "abierta": "string",
                             "monto_inicial": "float",
                             "ultima_actualizacion": "string",
                         },
+                        "bot_settings": {
+                            "bot_name": "string",
+                            "welcome": "string",
+                            "is_global_active": "string",
+                        }
                     }
                 },
                 tenant_id=tenant_id
@@ -159,7 +163,6 @@ class AuthService:
             await data_service.insert(
                 "bot_settings",
                 {
-                    "tenant_id": tenant_id,
                     "bot_name": f"Asistente de {business_name}",
                     "welcome": f"Hola! Bienvenido a {business_name}",
                     "is_global_active": "true",
@@ -192,10 +195,12 @@ class AuthService:
                 {
                     "fecha": datetime.datetime.utcnow().isoformat(),
                     "total": 35.5,
-                    "items": [
-                        {"codigo": "PROD001", "qty": 1, "price": 10.0},
-                        {"codigo": "PROD002", "qty": 1, "price": 25.5},
-                    ],
+                    "items": {
+                        "list": [
+                            {"codigo": "PROD001", "qty": 1, "price": 10.0},
+                            {"codigo": "PROD002", "qty": 1, "price": 25.5},
+                        ]
+                    },
                     "employee_id": "SYSTEM"
                 },
                 tenant_id=tenant_id
