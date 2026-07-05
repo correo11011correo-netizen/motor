@@ -22,14 +22,14 @@ class UXManager:
     def __init__(self):
         # Definición maestra de paneles disponibles en el sistema
         self.available_panels = {
-            "pos": UserPanel(
-                "pos", "Ventas", "cart", ["sales.create", "products.list"]
+            "sales": UserPanel(
+                "sales", "Ventas", "cart", ["sales.create", "products.list"]
             ),
             "stock": UserPanel(
                 "stock", "Inventario", "box", ["stock.update", "products.list"]
             ),
-            "employees": UserPanel(
-                "employees", "Empleados", "users", ["user.list", "user.invite"]
+            "identity": UserPanel(
+                "identity", "Empleados", "users", ["user.list", "user.invite"]
             ),
             "billing": UserPanel(
                 "billing", "Facturación", "credit-card", ["billing.get"]

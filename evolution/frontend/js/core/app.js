@@ -14,39 +14,53 @@ window.App = {
 
     async init() {
         try {
-            UI.showLoading();
+            const waitOverlay = document.getElementById('server-wait');
+            const waitStatus = document.getElementById('wait-status');
+            const retryBtn = document.getElementById('retry-connection');
+
+            // 1. Connection Test (Server Wait)
+            try {
+                await API.execute('system.status', {});
+                waitStatus.innerText = 'Conexión establecida. Cargando entorno...';
+            } catch (e) {
+                waitStatus.innerText = 'Error de conexión con el Motor Evolution';
+                retryBtn.classList.remove('hidden');
+                throw new Error('Server unreachable');
+            }
+
+            // Small delay for smooth transition
+            await new Promise(resolve => setTimeout(resolve, 800));
+            waitOverlay.classList.add('hidden');
 
             const token = localStorage.getItem('evolution_token');
             if (!token) {
                 this.showAuthScreen();
-                UI.hideLoading();
                 return;
             }
 
-            // 1. Fetch UX Configuration from Backend
+            // 2. Fetch UX Configuration from Backend
             const res = await API.getUXConfig();
 
-            // The backend /api/ux/config now returns user data if token is present
             this.state.user = res.user || { username: 'Usuario', role: 'employee' };
             this.state.config = res.config || res.panels ? {
                 menu: res.panels.map(p => ({ id: p.id, label: p.label, icon: p.icon })),
                 default_module: 'sales'
             } : null;
 
-            // 2. Setup UI
+            // 3. Setup UI
             this.renderUserProfile();
             this.renderNavigation();
 
-            // 3. Load Default Module
-            const defaultModule = this.state.config?.default_module || 'sales';
+            // 4. Load Default Module
+            const defaultModule = this.state.config?.menu[0]?.id || 'sales';
             this.loadModule(defaultModule);
 
-            UI.hideLoading();
         } catch (e) {
             console.error("Initialization error:", e);
-            localStorage.removeItem('evolution_token');
-            this.showAuthScreen();
-            UI.hideLoading();
+            if (e.message !== 'Server unreachable') {
+                localStorage.removeItem('evolution_token');
+                this.showAuthScreen();
+            }
         }
     },
 

@@ -14,6 +14,16 @@
     <script src="/static/js/modules/identity.js"></script>
 </head>
 <body class="app-body">
+    <!-- SERVER WAIT OVERLAY -->
+    <div id="server-wait" class="server-wait-overlay">
+        <div class="wait-content">
+            <div class="wait-spinner"></div>
+            <h1>Evolution Motor</h1>
+            <p id="wait-status">Estableciendo conexión segura...</p>
+            <button id="retry-connection" class="btn btn-primary hidden" onclick="App.init()">Reintentar Conexión</button>
+        </div>
+    </div>
+
     <div id="app-root">
         <div id="sidebar" class="sidebar">
             <div class="sidebar-logo">

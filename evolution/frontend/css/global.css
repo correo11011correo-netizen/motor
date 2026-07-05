@@ -46,8 +46,68 @@ body {
     min-height: 100vh;
 }
 
+/* Server Wait Overlay */
+.server-wait-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #0a0a0a;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+    font-family: 'Inter', sans-serif;
+}
+
+.server-wait-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.wait-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.wait-spinner {
+    width: 60px;
+    height: 60px;
+    border: 6px solid rgba(255,255,255,0.1);
+    border-top: 6px solid var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.wait-content h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin: 0;
+}
+
+.wait-content p {
+    color: #888;
+    font-size: 1rem;
+}
+
+.hidden {
+    display: none !important;
+}
+
 /* Auth Container centering */
 .auth-container {
+
     display: flex;
     justify-content: center;
     align-items: center;

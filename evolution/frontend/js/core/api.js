@@ -3,13 +3,9 @@
  * El único puente entre el Frontend Puro y el Motor Evolution.
  */
 
-const API_BASE = "https://datos-production.up.railway.app";
+const API_BASE = "https://motor-production-85c3.up.railway.app";
 
 const API = {
-    /**
-     * Ejecuta un comando en el Motor Evolution.
-     * El Motor se encarga de la lógica de negocio y la comunicación con DB-Sentinel.
-     */
     async execute(command, params = {}) {
         try {
             const token = localStorage.getItem('evolution_token');
@@ -18,13 +14,11 @@ const API = {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            const response = await fetch(`${API_BASE}/api/execute`, {
+            // El endpoint maestro es /exec?cmd=...
+            const response = await fetch(`${API_BASE}/exec?cmd=${command}`, {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify({
-                    command: command,
-                    params: params
-                })
+                body: JSON.stringify(params)
             });
 
             if (!response.ok) {
