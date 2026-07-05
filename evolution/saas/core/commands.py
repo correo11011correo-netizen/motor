@@ -25,14 +25,29 @@ class CoreCommandHandler:
         role: str = "employee",
     ) -> ServiceResponse:
         try:
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            # SECURITY: Only the admin (owner) can create users
+            if context.role != "admin":
+                return ServiceResponse.error_res(
+                    "Permission denied. Only the business owner can create users.", "UNAUTHORIZED"
+                )
+
+            # Use the unified password hashing logic (SaaS Salt)
+            salt = "EVOLUTION_SaaS_SALT_2026"
+            password_hash = hashlib.sha256((password + salt).encode()).hexdigest()
+
+            # Verify the email doesn't already exist in the system
+            res_exists = await data_service.query("users", filters={"email": username})
+            if res_exists.success and res_exists.data:
+                return ServiceResponse.error_res(
+                    f"The email {username} is already registered.", "USER_EXISTS"
+                )
 
             res = await data_service.insert(
                 "users",
                 {
                     "email": username,
                     "password_hash": password_hash,
-                    "role": role,
+                    "role": role if role == "employee" else "employee", # Force employee role
                     "tenant_id": str(context.tenant_id),
                 },
             )
